@@ -17,4 +17,13 @@ This code written for the kaggle competition, ["FIDE & Google Efficient Chess AI
 		- test code for ...(this is a dummy file)
 
 ## Usage
-I'll write it later.
+I'll explain how to build on kaggle notebook.
+Please download this repository and run the following commands to build the source code.
+
+1. `cd ./(the path of this repository)`
+1. `cmake -DIS_KAGGLE_ENV=True -DCMAKE_BUILD_TYPE="Release" -S /kaggle/input/fide2024-cpp-code/fide2024  -B build`
+1. `!cmake --build build`
+
+If you set `IS_KAGGLE_ENV=False`, projects that aren't needed for submitting, such as tests, will also be built.
+
+The path of the execution file after building the source code is `(the path of this repository)/build/fide2024/fide2024`.
