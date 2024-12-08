@@ -4,5 +4,6 @@
 #pragma once
 
 #include <iostream>
+#include <vector>
 
 // TODO: プログラムに必要な追加ヘッダーをここで参照します。
