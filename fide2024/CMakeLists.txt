@@ -5,15 +5,13 @@
 # ソースをこのプロジェクトの実行可能ファイルに追加します。
 file(GLOB CPP_SOURCES "${PROJECT_SOURCE_DIR}/fide2024/*.cpp")
 file(GLOB H_SOURCES "${PROJECT_SOURCE_DIR}/fide2024/*.h")
+file(GLOB CPP_SOURCES_SYZYGY "${PROJECT_SOURCE_DIR}/fide2024/syzygy/*.cpp")
+file(GLOB H_SOURCES_SYZYGY "${PROJECT_SOURCE_DIR}/fide2024/syzygy/*.h")
 
-set(IS_KAGGLE_ENV False CACHE BOOL "Kaggle環境かどうかを表す変数")
-
-# Kaggle環境の場合はビルドしない
-if(NOT IS_KAGGLE_ENV)
-  add_library (fide2024_lib ${H_SOURCES} ${CPP_SOURCES})
-endif()
-
-add_executable (fide2024 ${H_SOURCES} ${CPP_SOURCES})
+add_library(fide2024_lib ${H_SOURCES} ${CPP_SOURCES} ${H_SOURCES_SYZYGY} ${CPP_SOURCES_SYZYGY})
+add_executable(fide2024 ${H_SOURCES} ${CPP_SOURCES} ${H_SOURCES_SYZYGY} ${CPP_SOURCES_SYZYGY})
+# target_link_libraries(fide2024 pthread)
+# target_link_libraries(fide2024_lib pthread)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET fide2024 PROPERTY CXX_STANDARD 20)
