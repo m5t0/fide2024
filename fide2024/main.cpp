@@ -27,7 +27,6 @@
 #include "tt.h"
 #include "uci.h"
 #include "endgame.h"
-#include "syzygy/tbprobe.h"
 
 namespace PSQT {
   void init();

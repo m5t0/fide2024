@@ -5,8 +5,8 @@
 # ソースをこのプロジェクトの実行可能ファイルに追加します。
 file(GLOB CPP_SOURCES "${PROJECT_SOURCE_DIR}/fide2024/*.cpp")
 file(GLOB H_SOURCES "${PROJECT_SOURCE_DIR}/fide2024/*.h")
-file(GLOB CPP_SOURCES_SYZYGY "${PROJECT_SOURCE_DIR}/fide2024/syzygy/*.cpp")
-file(GLOB H_SOURCES_SYZYGY "${PROJECT_SOURCE_DIR}/fide2024/syzygy/*.h")
+# file(GLOB CPP_SOURCES_SYZYGY "${PROJECT_SOURCE_DIR}/fide2024/syzygy/*.cpp")
+# file(GLOB H_SOURCES_SYZYGY "${PROJECT_SOURCE_DIR}/fide2024/syzygy/*.h")
 
 add_library(fide2024_lib ${H_SOURCES} ${CPP_SOURCES} ${H_SOURCES_SYZYGY} ${CPP_SOURCES_SYZYGY})
 add_executable(fide2024 ${H_SOURCES} ${CPP_SOURCES} ${H_SOURCES_SYZYGY} ${CPP_SOURCES_SYZYGY})
