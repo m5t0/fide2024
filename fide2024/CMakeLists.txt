@@ -13,7 +13,7 @@ add_executable(fide2024 ${H_SOURCES} ${CPP_SOURCES} ${H_SOURCES_SYZYGY} ${CPP_SO
 # target_link_libraries(fide2024 pthread)
 # target_link_libraries(fide2024_lib pthread)
 
-if(IS_KAGGLE_ENV)
+if(NOT IS_KAGGLE_ENV)
   target_compile_definitions(fide2024 PRIVATE KAGGLE=1)
   target_compile_definitions(fide2024_lib PRIVATE KAGGLE=1)
 endif()
