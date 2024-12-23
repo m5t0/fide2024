@@ -18,6 +18,8 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef KAGGLE
+
 #include <fstream>
 #include <iostream>
 #include <istream>
@@ -26,6 +28,8 @@
 #include "position.h"
 
 using namespace std;
+
+
 
 namespace {
 
@@ -158,3 +162,5 @@ vector<string> setup_bench(const Position& current, istream& is) {
 
   return list;
 }
+
+#endif // !KAGGLE
