@@ -95,6 +95,7 @@ namespace {
   void update_all_stats(const Position& pos, Stack* ss, Move bestMove, Value bestValue, Value beta, Square prevSq,
                         Move* quietsSearched, int quietCount, Move* capturesSearched, int captureCount, Depth depth);
 
+#ifndef KAGGLE
   // perft() is our utility to verify move generation. All the leaf nodes up
   // to the given depth are generated and counted, and the sum is returned.
   template<bool Root>
@@ -120,6 +121,7 @@ namespace {
     }
     return nodes;
   }
+#endif // !KAGGLE
 
 } // namespace
 
@@ -150,12 +152,14 @@ void Search::clear() {
 
 void MainThread::search() {
 
+#ifndef KAGGLE
   if (Limits.perft)
   {
       nodes = perft<true>(rootPos, Limits.perft);
       sync_cout << "\nNodes searched: " << nodes << "\n" << sync_endl;
       return;
   }
+#endif // !KAGGLE
 
   Color us = rootPos.side_to_move();
   Time.init(Limits, us, rootPos.game_ply());
