@@ -33,8 +33,9 @@ namespace PSQT {
 }
 
 int main(int argc, char* argv[]) {
-
+#ifndef KAGGLE
   std::cout << engine_info() << std::endl;
+#endif // !KAGGLE
 
   UCI::init(Options);
   PSQT::init();

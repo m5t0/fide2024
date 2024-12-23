@@ -29,15 +29,17 @@
 
 #include "types.h"
 
-const std::string engine_info(bool to_uci = false);
-const std::string compiler_info();
 void prefetch(void* addr);
+#ifndef KAGGLE
+const std::string compiler_info();
+const std::string engine_info(bool to_uci = false);
 void start_logger(const std::string& fname);
 
 void dbg_hit_on(bool b);
 void dbg_hit_on(bool c, bool b);
 void dbg_mean_of(int v);
 void dbg_print();
+#endif // !KAGGLE
 
 typedef std::chrono::milliseconds::rep TimePoint; // A value in milliseconds
 

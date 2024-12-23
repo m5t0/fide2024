@@ -38,7 +38,9 @@ namespace UCI {
 /// 'On change' actions, triggered by an option's value change
 void on_clear_hash(const Option&) { Search::clear(); }
 void on_hash_size(const Option& o) { TT.resize(o); }
+#ifndef KAGGLE
 void on_logger(const Option& o) { start_logger(o); }
+#endif // !KAGGLE
 void on_threads(const Option& o) { Threads.set(o); }
 void on_tb_path(const Option& o) { }
 
@@ -57,8 +59,9 @@ void init(OptionsMap& o) {
 
   // at most 2^32 clusters.
   constexpr int MaxHashMB = Is64Bit ? 131072 : 2048;
-
+#ifndef KAGGLE
   o["Debug Log File"]        << Option("", on_logger);
+#endif // !KAGGLE
   o["Contempt"]              << Option(24, -100, 100);
   o["Analysis Contempt"]     << Option("Both var Off var White var Black var Both", "Both");
   o["Threads"]               << Option(1, 1, 512, on_threads);

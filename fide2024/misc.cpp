@@ -42,16 +42,20 @@ typedef bool(*fun3_t)(HANDLE, CONST GROUP_AFFINITY*, PGROUP_AFFINITY);
 #endif
 
 #include <fstream>
-#include <iomanip>
 #include <iostream>
-#include <sstream>
 #include <vector>
+
+#ifndef KAGGLE
+#include <iomanip>
+#include <sstream>
+#endif // !KAGGLE
 
 #include "misc.h"
 #include "thread.h"
 
 using namespace std;
 
+#ifndef KAGGLE
 namespace {
 
 /// Version number. If Version is left empty, then compile date in the format
@@ -240,6 +244,7 @@ void dbg_print() {
            << (double)means[1] / means[0] << endl;
 }
 
+#endif // !KAGGLE
 
 /// Used to serialize access to std::cout to avoid multiple threads writing at
 /// the same time.
@@ -258,8 +263,10 @@ std::ostream& operator<<(std::ostream& os, SyncCout sc) {
 }
 
 
+#ifndef KAGGLE
 /// Trampoline helper to avoid moving Logger to misc.h
 void start_logger(const std::string& fname) { Logger::start(fname); }
+#endif // !KAGGLE
 
 
 /// prefetch() preloads the given address in L1/L2 cache. This is a non-blocking

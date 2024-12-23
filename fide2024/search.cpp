@@ -1680,7 +1680,9 @@ void MainThread::check_time() {
   if (tick - lastInfoTime >= 1000)
   {
       lastInfoTime = tick;
+#ifndef KAGGLE
       dbg_print();
+#endif // !KAGGLE
   }
 
   // We should not stop pondering until told so by the GUI
