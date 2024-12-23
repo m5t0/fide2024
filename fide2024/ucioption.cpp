@@ -28,7 +28,6 @@
 #include "thread.h"
 #include "tt.h"
 #include "uci.h"
-#include "syzygy/tbprobe.h"
 
 using std::string;
 
@@ -41,7 +40,7 @@ void on_clear_hash(const Option&) { Search::clear(); }
 void on_hash_size(const Option& o) { TT.resize(o); }
 void on_logger(const Option& o) { start_logger(o); }
 void on_threads(const Option& o) { Threads.set(o); }
-void on_tb_path(const Option& o) { Tablebases::init(o); }
+void on_tb_path(const Option& o) { }
 
 
 /// Our case insensitive less() function as required by UCI protocol
