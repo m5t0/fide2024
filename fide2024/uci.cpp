@@ -34,7 +34,10 @@
 
 using namespace std;
 
+#ifndef KAGGLE
+
 extern vector<string> setup_bench(const Position&, istream&);
+#endif // !KAGGLE
 
 namespace {
 
@@ -140,7 +143,7 @@ namespace {
   // it is run one by one printing a summary at the end.
 
   void bench(Position& pos, istream& args, StateListPtr& states) {
-
+#ifndef KAGGLE
     string token;
     uint64_t num, nodes = 0, cnt = 1;
 
@@ -179,6 +182,7 @@ namespace {
          << "\nTotal time (ms) : " << elapsed
          << "\nNodes searched  : " << nodes
          << "\nNodes/second    : " << 1000 * nodes / elapsed << endl;
+#endif
   }
 
 } // namespace
