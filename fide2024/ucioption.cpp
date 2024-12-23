@@ -42,7 +42,6 @@ void on_hash_size(const Option& o) { TT.resize(o); }
 void on_logger(const Option& o) { start_logger(o); }
 #endif // !KAGGLE
 void on_threads(const Option& o) { Threads.set(o); }
-void on_tb_path(const Option& o) { }
 
 
 /// Our case insensitive less() function as required by UCI protocol
