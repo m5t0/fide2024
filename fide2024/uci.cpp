@@ -69,7 +69,7 @@ namespace {
             return;
 
         states = StateListPtr(new std::deque<StateInfo>(1)); // Drop old and create a new one
-        pos.set(fen, Options["UCI_Chess960"], &states->back(), Threads.main());
+        pos.set(fen, &states->back(), Threads.main());
 
         // Parse move list (if any)
         while (is >> token && (m = UCI::to_move(pos, token)) != MOVE_NONE)
@@ -78,31 +78,6 @@ namespace {
             pos.do_move(m, states->back());
         }
     }
-
-
-    // setoption() is called when engine receives the "setoption" UCI command. The
-    // function updates the UCI option ("name") to the given value ("value").
-
-    void setoption(istringstream& is) {
-
-        string token, name, value;
-
-        is >> token; // Consume "name" token
-
-        // Read option name (can contain spaces)
-        while (is >> token && token != "value")
-            name += (name.empty() ? "" : " ") + token;
-
-        // Read option value (can contain spaces)
-        while (is >> token)
-            value += (value.empty() ? "" : " ") + token;
-
-        if (Options.count(name))
-            Options[name] = value;
-        else
-            sync_cout << "No such option: " << name << sync_endl;
-    }
-
 
     // go() is called when engine receives the "go" UCI command. The function sets
     // the thinking time and other parameters from the input string, then starts
@@ -169,7 +144,6 @@ namespace {
                 else
                     sync_cout << "\n" << Eval::trace(pos) << sync_endl;
             }
-            else if (token == "setoption")  setoption(is);
             else if (token == "position")   position(pos, is, states);
             else if (token == "ucinewgame") { Search::clear(); elapsed = now(); } // Search::clear() may take some while
         }
@@ -200,7 +174,7 @@ void UCI::loop(int argc, char* argv[]) {
     string token, cmd;
     StateListPtr states(new std::deque<StateInfo>(1));
 
-    pos.set(StartFEN, false, &states->back(), Threads.main());
+    pos.set(StartFEN, &states->back(), Threads.main());
 
     for (int i = 1; i < argc; ++i)
         cmd += std::string(argv[i]) + " ";
@@ -230,10 +204,8 @@ void UCI::loop(int argc, char* argv[]) {
 #ifndef KAGGLE
             << "id name " << engine_info(true)
 #endif // !KAGGLE
-            << "\n" << Options
             << "\nuciok" << sync_endl;
 
-        else if (token == "setoption")  setoption(is);
         else if (token == "go")         go(pos, is, states);
         else if (token == "position")   position(pos, is, states);
         else if (token == "ucinewgame") Search::clear();
@@ -291,7 +263,7 @@ std::string UCI::square(Square s) {
 /// normal chess mode, and in e1h1 notation in chess960 mode. Internally all
 /// castling moves are always encoded as 'king captures rook'.
 
-string UCI::move(Move m, bool chess960) {
+string UCI::move(Move m) {
 
     Square from = from_sq(m);
     Square to = to_sq(m);
@@ -302,7 +274,7 @@ string UCI::move(Move m, bool chess960) {
     if (m == MOVE_NULL)
         return "0000";
 
-    if (type_of(m) == CASTLING && !chess960)
+    if (type_of(m) == CASTLING)
         to = make_square(to > from ? FILE_G : FILE_C, rank_of(from));
 
     string move = UCI::square(from) + UCI::square(to);
@@ -323,7 +295,7 @@ Move UCI::to_move(const Position& pos, string& str) {
         str[4] = char(tolower(str[4]));
 
     for (const auto& m : MoveList<LEGAL>(pos))
-        if (str == UCI::move(m, pos.is_chess960()))
+        if (str == UCI::move(m))
             return m;
 
     return MOVE_NONE;

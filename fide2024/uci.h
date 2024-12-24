@@ -28,55 +28,32 @@
 
 class Position;
 
+namespace OptionValue {
+
+    // min: -100, max: 100
+    constexpr int Contempt = 24;
+    constexpr int Threads = 1;
+    // 64bitÇ»ÇÁç≈ëÂ131072ÅA32bitÇ»ÇÁç≈ëÂ2048
+    constexpr int Hash = 16;
+    constexpr bool Ponder = true;
+    constexpr int MultiPV = 1;
+    // min: 0, max: 5000
+    constexpr int MoveOverhead = 30;
+    // min: 0, max: 5000
+    constexpr int MinimumThinkingTime = 20;
+    // min: 10, max: 1000
+    constexpr int SlowMover = 84;
+}
+
 namespace UCI {
-
-class Option;
-
-/// Custom comparator because UCI options should be case insensitive
-struct CaseInsensitiveLess {
-  bool operator() (const std::string&, const std::string&) const;
-};
-
-/// Our options container is actually a std::map
-typedef std::map<std::string, Option, CaseInsensitiveLess> OptionsMap;
-
-/// Option class implements an option as defined by UCI protocol
-class Option {
-
-  typedef void (*OnChange)(const Option&);
-
-public:
-  Option(OnChange = nullptr);
-  Option(bool v, OnChange = nullptr);
-  Option(const char* v, OnChange = nullptr);
-  Option(double v, int minv, int maxv, OnChange = nullptr);
-  Option(const char* v, const char* cur, OnChange = nullptr);
-
-  Option& operator=(const std::string&);
-  void operator<<(const Option&);
-  operator double() const;
-  operator std::string() const;
-  bool operator==(const char*) const;
-
-private:
-  friend std::ostream& operator<<(std::ostream&, const OptionsMap&);
-
-  std::string defaultValue, currentValue, type;
-  int min, max;
-  size_t idx;
-  OnChange on_change;
-};
-
-void init(OptionsMap&);
+void init();
 void loop(int argc, char* argv[]);
 std::string value(Value v);
 std::string square(Square s);
-std::string move(Move m, bool chess960);
+std::string move(Move m);
 std::string pv(const Position& pos, Depth depth, Value alpha, Value beta);
 Move to_move(const Position& pos, std::string& str);
 
 } // namespace UCI
-
-extern UCI::OptionsMap Options;
 
 #endif // #ifndef UCI_H_INCLUDED
