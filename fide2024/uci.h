@@ -46,7 +46,6 @@ namespace OptionValue {
 }
 
 namespace UCI {
-void init();
 void loop(int argc, char* argv[]);
 std::string value(Value v);
 std::string square(Square s);
