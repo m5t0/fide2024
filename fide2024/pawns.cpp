@@ -21,9 +21,7 @@
 #include <algorithm>
 #include <cassert>
 
-#include "bitboard.h"
 #include "pawns.h"
-#include "position.h"
 #include "thread.h"
 
 namespace {

@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "bitboard.h"
-#include "types.h"
 
 namespace {
 

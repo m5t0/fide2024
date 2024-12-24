@@ -50,7 +50,6 @@ typedef bool(*fun3_t)(HANDLE, CONST GROUP_AFFINITY*, PGROUP_AFFINITY);
 #include <sstream>
 #endif // !KAGGLE
 
-#include "misc.h"
 #include "thread.h"
 
 using namespace std;

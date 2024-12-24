@@ -27,7 +27,6 @@
 #include <string>
 
 #include "bitboard.h"
-#include "types.h"
 
 
 /// StateInfo struct stores information needed to restore a Position object to

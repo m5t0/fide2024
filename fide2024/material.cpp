@@ -21,7 +21,6 @@
 #include <cassert>
 #include <cstring>   // For std::memset
 
-#include "material.h"
 #include "thread.h"
 
 using namespace std;

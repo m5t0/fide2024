@@ -21,8 +21,6 @@
 #ifndef TIMEMAN_H_INCLUDED
 #define TIMEMAN_H_INCLUDED
 
-#include "misc.h"
-#include "search.h"
 #include "thread.h"
 
 /// The TimeManagement class computes the optimal time to think depending on

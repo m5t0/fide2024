@@ -20,13 +20,9 @@
 
 #include <iostream>
 
-#include "bitboard.h"
-#include "position.h"
 #include "search.h"
 #include "thread.h"
-#include "tt.h"
 #include "uci.h"
-#include "endgame.h"
 
 namespace PSQT {
   void init();
