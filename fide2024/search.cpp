@@ -116,7 +116,7 @@ namespace {
             pos.undo_move(m);
         }
         if (Root)
-            sync_cout << UCI::move(m, pos.is_chess960()) << ": " << cnt << sync_endl;
+            sync_cout << UCI::move(m) << ": " << cnt << sync_endl;
     }
     return nodes;
   }
@@ -206,7 +206,7 @@ void MainThread::search() {
   Thread* bestThread = this;
 
   // Check if there are threads with a better score than main thread
-  if (    Options["MultiPV"] == 1
+  if (OptionValue::MultiPV == 1
       && !Limits.depth
       &&  rootMoves[0].pv[0] != MOVE_NONE)
   {
@@ -241,10 +241,10 @@ void MainThread::search() {
   if (bestThread != this)
       sync_cout << UCI::pv(bestThread->rootPos, bestThread->completedDepth, -VALUE_INFINITE, VALUE_INFINITE) << sync_endl;
 
-  sync_cout << "bestmove " << UCI::move(bestThread->rootMoves[0].pv[0], rootPos.is_chess960());
+  sync_cout << "bestmove " << UCI::move(bestThread->rootMoves[0].pv[0]);
 
   if (bestThread->rootMoves[0].pv.size() > 1 || bestThread->rootMoves[0].extract_ponder_from_tt(rootPos))
-      std::cout << " ponder " << UCI::move(bestThread->rootMoves[0].pv[1], rootPos.is_chess960());
+      std::cout << " ponder " << UCI::move(bestThread->rootMoves[0].pv[1]);
 
   std::cout << sync_endl;
 }
@@ -289,20 +289,12 @@ void Thread::search() {
               mainThread->iterValue[i] = mainThread->previousScore;
   }
 
-  size_t multiPV = Options["MultiPV"];
+  size_t multiPV = OptionValue::MultiPV;
 
   multiPV = std::min(multiPV, rootMoves.size());
   ttHitAverage = ttHitAverageWindow * ttHitAverageResolution / 2;
 
-  int ct = int(Options["Contempt"]) * PawnValueEg / 100; // From centipawns
-
-  // In analysis mode, adjust contempt in accordance with user preference
-  if (Limits.infinite || Options["UCI_AnalyseMode"])
-      ct =  Options["Analysis Contempt"] == "Off"  ? 0
-          : Options["Analysis Contempt"] == "Both" ? ct
-          : Options["Analysis Contempt"] == "White" && us == BLACK ? -ct
-          : Options["Analysis Contempt"] == "Black" && us == WHITE ? -ct
-          : ct;
+  int ct = OptionValue::Contempt * PawnValueEg / 100; // From centipawns
 
   // Evaluation score is from the white point of view
   contempt = (us == WHITE ?  make_score(ct, ct / 2)
@@ -835,7 +827,7 @@ moves_loop: // When in check, search starts from here
 
       if (rootNode && thisThread == Threads.main() && Time.elapsed() > 3000)
           sync_cout << "info depth " << depth
-                    << " currmove " << UCI::move(move, pos.is_chess960())
+                    << " currmove " << UCI::move(move)
                     << " currmovenumber " << moveCount + thisThread->pvIdx << sync_endl;
       if (PvNode)
           (ss+1)->pv = nullptr;
@@ -1572,7 +1564,7 @@ string UCI::pv(const Position& pos, Depth depth, Value alpha, Value beta) {
   TimePoint elapsed = Time.elapsed() + 1;
   const RootMoves& rootMoves = pos.this_thread()->rootMoves;
   size_t pvIdx = pos.this_thread()->pvIdx;
-  size_t multiPV = std::min((size_t)Options["MultiPV"], rootMoves.size());
+  size_t multiPV = std::min((size_t)OptionValue::MultiPV, rootMoves.size());
   uint64_t nodesSearched = Threads.nodes_searched();
 
   for (size_t i = 0; i < multiPV; ++i)
@@ -1607,7 +1599,7 @@ string UCI::pv(const Position& pos, Depth depth, Value alpha, Value beta) {
          << " pv";
 
       for (Move m : rootMoves[i].pv)
-          ss << " " << UCI::move(m, pos.is_chess960());
+          ss << " " << UCI::move(m);
   }
 
   return ss.str();

@@ -110,7 +110,7 @@ void Thread::idle_loop() {
   // some Windows NUMA hardware, for instance in fishtest. To make it simple,
   // just check if running threads are below a threshold, in this case all this
   // NUMA machinery is not needed.
-  if (Options["Threads"] > 8)
+  if (OptionValue::Threads > 8)
       WinProcGroup::bindThisThread(idx);
 
   while (true)
@@ -150,7 +150,7 @@ void ThreadPool::set(size_t requested) {
       clear();
 
       // Reallocate the hash with the new threadpool size
-      TT.resize(Options["Hash"]);
+      TT.resize(OptionValue::Hash);
 
       // Init thread number dependent search params.
       Search::init();
@@ -207,7 +207,7 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
       th->nodes = th->nmpMinPly = 0;
       th->rootDepth = th->completedDepth = 0;
       th->rootMoves = rootMoves;
-      th->rootPos.set(pos.fen(), pos.is_chess960(), &setupStates->back(), th);
+      th->rootPos.set(pos.fen(), &setupStates->back(), th);
   }
 
   setupStates->back() = tmp;

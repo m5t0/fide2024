@@ -83,26 +83,10 @@ namespace {
 
 void TimeManagement::init(Search::LimitsType& limits, Color us, int ply) {
 
-  TimePoint minThinkingTime = Options["Minimum Thinking Time"];
-  TimePoint moveOverhead    = Options["Move Overhead"];
-  TimePoint slowMover       = Options["Slow Mover"];
-  TimePoint npmsec          = Options["nodestime"];
+  TimePoint minThinkingTime = OptionValue::MinimumThinkingTime;
+  TimePoint moveOverhead = OptionValue::MoveOverhead;
+  TimePoint slowMover = OptionValue::SlowMover;
   TimePoint hypMyTime;
-
-  // If we have to play in 'nodes as time' mode, then convert from time
-  // to nodes, and use resulting values in time management formulas.
-  // WARNING: to avoid time losses, the given npmsec (nodes per millisecond)
-  // must be much lower than the real engine speed.
-  if (npmsec)
-  {
-      if (!availableNodes) // Only once at game start
-          availableNodes = npmsec * limits.time[us]; // Time is in msec
-
-      // Convert from milliseconds to nodes
-      limits.time[us] = TimePoint(availableNodes);
-      limits.inc[us] *= npmsec;
-      limits.npmsec = npmsec;
-  }
 
   startTime = limits.startTime;
   optimumTime = maximumTime = std::max(limits.time[us], minThinkingTime);
@@ -128,6 +112,6 @@ void TimeManagement::init(Search::LimitsType& limits, Color us, int ply) {
       maximumTime = std::min(t2, maximumTime);
   }
 
-  if (Options["Ponder"])
+  if (OptionValue::Ponder)
       optimumTime += optimumTime / 4;
 }
