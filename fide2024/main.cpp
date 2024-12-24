@@ -37,7 +37,6 @@ int main(int argc, char* argv[]) {
   std::cout << engine_info() << std::endl;
 #endif // !KAGGLE
 
-  UCI::init();
   PSQT::init();
   Bitboards::init();
   Position::init();
