@@ -241,9 +241,12 @@ void MainThread::search() {
 
   previousScore = bestThread->rootMoves[0].score;
 
+#ifndef KAGGLE
   // Send again PV info if we have a new best thread
   if (bestThread != this)
       sync_cout << UCI::pv(bestThread->rootPos, bestThread->completedDepth, -VALUE_INFINITE, VALUE_INFINITE) << sync_endl;
+
+#endif // KAGGLE
 
   sync_cout << "bestmove " << UCI::move(bestThread->rootMoves[0].pv[0]);
 
@@ -378,6 +381,7 @@ void Thread::search() {
               if (Threads.stop)
                   break;
 
+#ifndef KAGGLE
               // When failing high/low give some update (without cluttering
               // the UI) before a re-search.
               if (   mainThread
@@ -385,6 +389,7 @@ void Thread::search() {
                   && (bestValue <= alpha || bestValue >= beta)
                   && Time.elapsed() > 3000)
                   sync_cout << UCI::pv(rootPos, rootDepth, alpha, beta) << sync_endl;
+#endif // KAGGLE
 
               // In case of failing low/high increase aspiration window and
               // re-search, otherwise exit the loop.
@@ -416,9 +421,12 @@ void Thread::search() {
           // Sort the PV lines searched so far and update the GUI
           std::stable_sort(rootMoves.begin() + pvFirst, rootMoves.begin() + pvIdx + 1);
 
+#ifndef KAGGLE
           if (    mainThread
               && (Threads.stop || pvIdx + 1 == multiPV || Time.elapsed() > 3000))
               sync_cout << UCI::pv(rootPos, rootDepth, alpha, beta) << sync_endl;
+
+#endif // KAGGLE
       }
 
       if (!Threads.stop)
@@ -1559,9 +1567,10 @@ void MainThread::check_time() {
 }
 
 
+#ifndef KAGGLE
+
 /// UCI::pv() formats PV information according to the UCI protocol. UCI requires
 /// that all (if any) unsearched PV lines are sent using a previous search score.
-
 string UCI::pv(const Position& pos, Depth depth, Value alpha, Value beta) {
 
   std::stringstream ss;
@@ -1608,6 +1617,8 @@ string UCI::pv(const Position& pos, Depth depth, Value alpha, Value beta) {
 
   return ss.str();
 }
+
+#endif // !KAGGLE
 
 
 /// RootMove::extract_ponder_from_tt() is called in case we have no ponder move
