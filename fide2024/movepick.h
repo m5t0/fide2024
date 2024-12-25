@@ -44,6 +44,7 @@ public:
   T* operator->() { return &entry; }
   operator const T&() const { return entry; }
 
+#ifndef KAGGLE
   void operator<<(int bonus) {
     assert(abs(bonus) <= D); // Ensure range is [-D, D]
     static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
@@ -52,6 +53,7 @@ public:
 
     assert(abs(entry) <= D);
   }
+#endif // !KAGGLE
 };
 
 /// Stats is a generic N-dimensional array used to store various statistics.

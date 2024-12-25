@@ -218,9 +218,7 @@ void UCI::loop(int argc, char* argv[]) {
         else if (token == "flip")     pos.flip();
 #ifndef KAGGLE
         else if (token == "bench")    bench(pos, is, states);
-#endif // !KAGGLE
         else if (token == "d")        sync_cout << pos << sync_endl;
-#ifndef KAGGLE
         else if (token == "eval")     sync_cout << Eval::trace(pos) << sync_endl;
         else if (token == "compiler") sync_cout << compiler_info() << sync_endl;
 #endif // !KAGGLE

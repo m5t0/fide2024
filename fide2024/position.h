@@ -199,7 +199,9 @@ namespace PSQT {
   extern Score psq[PIECE_NB][SQUARE_NB];
 }
 
+#ifndef KAGGLE
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);
+#endif // KAGGLE
 
 inline Color Position::side_to_move() const {
   return sideToMove;

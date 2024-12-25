@@ -52,6 +52,7 @@ constexpr Piece Pieces[] = { W_PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING
 } // namespace
 
 
+#ifndef KAGGLE
 /// operator<<(Position) returns an ASCII representation of the position
 
 std::ostream& operator<<(std::ostream& os, const Position& pos) {
@@ -75,6 +76,7 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
 
   return os;
 }
+#endif // KAGGLE
 
 
 // Marcel van Kervinck's cuckoo algorithm for fast detection of "upcoming repetition"
