@@ -93,9 +93,11 @@ namespace {
         pos.set(fen, &states->back(), Threads.main());
 
         // Parse move list (if any)
-        while (!splitter.empty() && (m = UCI::to_move(pos, token)) != MOVE_NONE)
+        while (!splitter.empty())
         {
             token = splitter.next_token();
+            if ((m = UCI::to_move(pos, token)) == MOVE_NONE) break;
+
             states->emplace_back();
             pos.do_move(m, states->back());
         }
