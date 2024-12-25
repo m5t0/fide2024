@@ -161,9 +161,11 @@ public:
   Value non_pawn_material(Color c) const;
   Value non_pawn_material() const;
 
+#ifndef KAGGLE
   // Position consistency check, for debugging
   bool pos_is_ok() const;
   void flip();
+#endif // !KAGGLE
 
 private:
   // Initialization helpers (used while setting up a position)

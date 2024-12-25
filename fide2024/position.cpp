@@ -270,7 +270,9 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
   thisThread = th;
   set_state(st);
 
+#ifndef KAGGLE
   assert(pos_is_ok());
+#endif // !KAGGLE
 
   return *this;
 }
@@ -843,7 +845,9 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       }
   }
 
+#ifndef KAGGLE
   assert(pos_is_ok());
+#endif // !KAGGLE
 }
 
 
@@ -907,7 +911,9 @@ void Position::undo_move(Move m) {
   st = st->previous;
   --gamePly;
 
+#ifndef KAGGLE
   assert(pos_is_ok());
+#endif // !KAGGLE
 }
 
 
@@ -960,7 +966,9 @@ void Position::do_null_move(StateInfo& newSt) {
 
   st->repetition = 0;
 
+#ifndef KAGGLE
   assert(pos_is_ok());
+#endif // !KAGGLE
 }
 
 void Position::undo_null_move() {
@@ -1177,6 +1185,7 @@ bool Position::has_game_cycle(int ply) const {
   return false;
 }
 
+#ifndef KAGGLE
 
 /// Position::flip() flips position with the white and black sides reversed. This
 /// is only useful for debugging e.g. for finding evaluation symmetry bugs.
@@ -1209,7 +1218,9 @@ void Position::flip() {
 
   set(f, st, this_thread());
 
+#ifndef KAGGLE
   assert(pos_is_ok());
+#endif // !KAGGLE
 }
 
 
@@ -1282,3 +1293,5 @@ bool Position::pos_is_ok() const {
 
   return true;
 }
+
+#endif // !KAGGLE
