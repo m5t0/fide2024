@@ -30,9 +30,12 @@
 #include "pawns.h"
 #include "thread.h"
 
+
 namespace Trace {
 
   enum Tracing { NO_TRACE, TRACE };
+
+#ifndef KAGGLE
 
   enum Term { // The first 8 entries are reserved for PieceType
     MATERIAL = 8, IMBALANCE, MOBILITY, THREAT, PASSED, SPACE, INITIATIVE, TOTAL, TERM_NB
@@ -67,9 +70,11 @@ namespace Trace {
     os << " | " << scores[t][WHITE] - scores[t][BLACK] << "\n";
     return os;
   }
+#endif // !KAGGLE
 }
 
 using namespace Trace;
+
 
 namespace {
 
@@ -347,8 +352,11 @@ namespace {
                 score -= WeakQueen;
         }
     }
+
+#ifndef KAGGLE
     if (T)
         Trace::add(Pt, Us, score);
+#endif // !KAGGLE
 
     return score;
   }
@@ -454,8 +462,11 @@ namespace {
     // Penalty if king flank is under attack, potentially moving toward the king
     score -= FlankAttacks * kingFlankAttack;
 
+#ifndef KAGGLE
     if (T)
         Trace::add(KING, Us, score);
+
+#endif // !KAGGLE
 
     return score;
   }
@@ -548,8 +559,10 @@ namespace {
         score += SliderOnQueen * popcount(b & safe & attackedBy2[Us]);
     }
 
+#ifndef KAGGLE
     if (T)
         Trace::add(THREAT, Us, score);
+#endif // !KAGGLE
 
     return score;
   }
@@ -631,8 +644,10 @@ namespace {
         score += bonus - PassedFile * map_to_queenside(file_of(s));
     }
 
+#ifndef KAGGLE
     if (T)
         Trace::add(PASSED, Us, score);
+#endif // !KAGGLE
 
     return score;
   }
@@ -671,8 +686,10 @@ namespace {
     int weight = pos.count<ALL_PIECES>(Us) - 1;
     Score score = make_score(bonus * weight * weight / 16, 0);
 
+#ifndef KAGGLE
     if (T)
         Trace::add(SPACE, Us, score);
+#endif // !KAGGLE
 
     return score;
   }
@@ -717,8 +734,10 @@ namespace {
     int u = ((mg > 0) - (mg < 0)) * std::max(std::min(complexity + 50, 0), -abs(mg));
     int v = ((eg > 0) - (eg < 0)) * std::max(complexity, -abs(eg));
 
+#ifndef KAGGLE
     if (T)
         Trace::add(INITIATIVE, make_score(u, v));
+#endif // !KAGGLE
 
     return make_score(u, v);
   }
@@ -806,6 +825,7 @@ namespace {
 
     v /= PHASE_MIDGAME;
 
+#ifndef KAGGLE
     // In case of tracing add all remaining individual evaluation terms
     if (T)
     {
@@ -815,6 +835,7 @@ namespace {
         Trace::add(MOBILITY, mobility[WHITE], mobility[BLACK]);
         Trace::add(TOTAL, score);
     }
+#endif // !KAGGLE
 
     return  (pos.side_to_move() == WHITE ? v : -v) // Side to move point of view
            + Eval::Tempo;
@@ -835,6 +856,7 @@ Value Eval::evaluate(const Position& pos) {
 /// a string (suitable for outputting to stdout) that contains the detailed
 /// descriptions and values of each evaluation term. Useful for debugging.
 
+#ifndef KAGGLE
 std::string Eval::trace(const Position& pos) {
 
   if (pos.checkers())
@@ -873,3 +895,5 @@ std::string Eval::trace(const Position& pos) {
 
   return ss.str();
 }
+
+#endif // !KAGGLE
