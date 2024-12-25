@@ -234,6 +234,7 @@ void UCI::loop(int argc, char* argv[]) {
 /// mate <y>  Mate in y moves, not plies. If the engine is getting mated
 ///           use negative values for y.
 
+#ifndef KAGGLE
 string UCI::value(Value v) {
 
     assert(-VALUE_INFINITE < v && v < VALUE_INFINITE);
@@ -247,6 +248,7 @@ string UCI::value(Value v) {
 
     return ss.str();
 }
+#endif // !KAGGLE
 
 
 /// UCI::square() converts a Square to a string in algebraic notation (g1, a7, etc.)

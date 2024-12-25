@@ -47,12 +47,12 @@ namespace OptionValue {
 
 namespace UCI {
 void loop(int argc, char* argv[]);
-std::string value(Value v);
 std::string square(Square s);
 std::string move(Move m);
 Move to_move(const Position& pos, std::string& str);
 
 #ifndef KAGGLE
+std::string value(Value v);
 std::string pv(const Position& pos, Depth depth, Value alpha, Value beta);
 
 #endif // KAGGLE
