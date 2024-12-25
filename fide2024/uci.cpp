@@ -141,8 +141,10 @@ namespace {
                     Threads.main()->wait_for_search_finished();
                     nodes += Threads.nodes_searched();
                 }
+#ifndef KAGGLE
                 else
                     sync_cout << "\n" << Eval::trace(pos) << sync_endl;
+#endif // !KAGGLE
             }
             else if (token == "position")   position(pos, is, states);
             else if (token == "ucinewgame") { Search::clear(); elapsed = now(); } // Search::clear() may take some while
@@ -218,8 +220,8 @@ void UCI::loop(int argc, char* argv[]) {
         else if (token == "bench")    bench(pos, is, states);
 #endif // !KAGGLE
         else if (token == "d")        sync_cout << pos << sync_endl;
-        else if (token == "eval")     sync_cout << Eval::trace(pos) << sync_endl;
 #ifndef KAGGLE
+        else if (token == "eval")     sync_cout << Eval::trace(pos) << sync_endl;
         else if (token == "compiler") sync_cout << compiler_info() << sync_endl;
 #endif // !KAGGLE
         else
