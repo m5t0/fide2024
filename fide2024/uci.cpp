@@ -141,10 +141,8 @@ namespace {
                     Threads.main()->wait_for_search_finished();
                     nodes += Threads.nodes_searched();
                 }
-#ifndef KAGGLE
                 else
                     sync_cout << "\n" << Eval::trace(pos) << sync_endl;
-#endif // !KAGGLE
             }
             else if (token == "position")   position(pos, is, states);
             else if (token == "ucinewgame") { Search::clear(); elapsed = now(); } // Search::clear() may take some while
