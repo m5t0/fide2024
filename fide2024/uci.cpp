@@ -20,7 +20,8 @@
 
 #include <cassert>
 #include <iostream>
-#include <sstream>
+#include <algorithm>
+#include <vector>
 #include <string>
 
 #include "evaluate.h"
@@ -36,11 +37,28 @@ using namespace std;
 
 #ifndef KAGGLE
 
-extern vector<string> setup_bench(const Position&, istream&);
+extern vector<string> setup_bench(const Position&, StringSplitter&);
 #endif // !KAGGLE
 
-namespace {
+std::vector<std::string> white_split(const std::string& str) {
+    std::vector<std::string> result;
+    auto start = str.begin();
+    auto end = std::find(start, str.end(), ' ');
 
+    while (end != str.end()) {
+        result.push_back(std::string(start, end));
+        start = end + 1;
+        end = std::find(start, str.end(), ' ');
+    }
+
+    if (start != str.end()) {
+        result.push_back(std::string(start, str.end()));
+    }
+
+    return result;
+}
+
+namespace {
     // FEN string of the initial position, normal chess
     const char* StartFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -50,21 +68,24 @@ namespace {
     // or the starting position ("startpos") and then makes the moves given in the
     // following move list ("moves").
 
-    void position(Position& pos, istringstream& is, StateListPtr& states) {
+    void position(Position& pos, StringSplitter& splitter, StateListPtr& states) {
 
         Move m;
         string token, fen;
 
-        is >> token;
+        token = splitter.next_token();
 
         if (token == "startpos")
         {
             fen = StartFEN;
-            is >> token; // Consume "moves" token if any
+            token = splitter.next_token(); // Consume "moves" token if any
         }
         else if (token == "fen")
-            while (is >> token && token != "moves")
+            while (!splitter.empty() && token != "moves")
+            {
+                token = splitter.next_token();
                 fen += token + " ";
+            }
         else
             return;
 
@@ -72,8 +93,9 @@ namespace {
         pos.set(fen, &states->back(), Threads.main());
 
         // Parse move list (if any)
-        while (is >> token && (m = UCI::to_move(pos, token)) != MOVE_NONE)
+        while (!splitter.empty() && (m = UCI::to_move(pos, token)) != MOVE_NONE)
         {
+            token = splitter.next_token();
             states->emplace_back();
             pos.do_move(m, states->back());
         }
@@ -83,7 +105,7 @@ namespace {
     // the thinking time and other parameters from the input string, then starts
     // the search.
 
-    void go(Position& pos, istringstream& is, StateListPtr& states) {
+    void go(Position& pos, StringSplitter& splitter, StateListPtr& states) {
 
         Search::LimitsType limits;
         string token;
@@ -91,23 +113,30 @@ namespace {
 
         limits.startTime = now(); // As early as possible!
 
-        while (is >> token)
+        while (!splitter.empty())
+        {
+            token = splitter.next_token();
             if (token == "searchmoves")
-                while (is >> token)
+            {
+                while (!splitter.empty())
+                {
+                    token = splitter.next_token();
                     limits.searchmoves.push_back(UCI::to_move(pos, token));
-
-            else if (token == "wtime")     is >> limits.time[WHITE];
-            else if (token == "btime")     is >> limits.time[BLACK];
-            else if (token == "winc")      is >> limits.inc[WHITE];
-            else if (token == "binc")      is >> limits.inc[BLACK];
-            else if (token == "movestogo") is >> limits.movestogo;
-            else if (token == "depth")     is >> limits.depth;
-            else if (token == "nodes")     is >> limits.nodes;
-            else if (token == "movetime")  is >> limits.movetime;
-            else if (token == "mate")      is >> limits.mate;
-            else if (token == "perft")     is >> limits.perft;
+                }
+            }
+            else if (token == "wtime")     limits.time[WHITE] = std::stoll(splitter.next_token());
+            else if (token == "btime")     limits.time[BLACK] = std::stoll(splitter.next_token());
+            else if (token == "winc")      limits.inc[WHITE] = std::stoll(splitter.next_token());
+            else if (token == "binc")      limits.inc[BLACK] = std::stoll(splitter.next_token());
+            else if (token == "movestogo") limits.movestogo = std::stoi(splitter.next_token());
+            else if (token == "depth")     limits.depth = std::stoi(splitter.next_token());
+            else if (token == "nodes")     limits.nodes = std::stoll(splitter.next_token());
+            else if (token == "movetime")  limits.movetime = std::stoll(splitter.next_token());
+            else if (token == "mate")      limits.mate = std::stoi(splitter.next_token());
+            else if (token == "perft")     limits.perft = std::stoi(splitter.next_token());
             else if (token == "infinite")  limits.infinite = 1;
             else if (token == "ponder")    ponderMode = true;
+        }
 
         Threads.start_thinking(pos, states, limits, ponderMode);
     }
@@ -118,7 +147,7 @@ namespace {
     // it is run one by one printing a summary at the end.
 
 #ifndef KAGGLE
-    void bench(Position& pos, istream& args, StateListPtr& states) {
+    void bench(Position& pos, StringSplitter& args, StateListPtr& states) {
         string token;
         uint64_t num, nodes = 0, cnt = 1;
 
@@ -129,22 +158,22 @@ namespace {
 
         for (const auto& cmd : list)
         {
-            istringstream is(cmd);
-            is >> skipws >> token;
+            StringSplitter splitter(cmd);
+            token = splitter.next_token();
 
             if (token == "go" || token == "eval")
             {
                 cerr << "\nPosition: " << cnt++ << '/' << num << endl;
                 if (token == "go")
                 {
-                    go(pos, is, states);
+                    go(pos, splitter, states);
                     Threads.main()->wait_for_search_finished();
                     nodes += Threads.nodes_searched();
                 }
                 else
                     sync_cout << "\n" << Eval::trace(pos) << sync_endl;
             }
-            else if (token == "position")   position(pos, is, states);
+            else if (token == "position")   position(pos, splitter, states);
             else if (token == "ucinewgame") { Search::clear(); elapsed = now(); } // Search::clear() may take some while
         }
 
@@ -183,10 +212,10 @@ void UCI::loop(int argc, char* argv[]) {
         if (argc == 1 && !getline(cin, cmd)) // Block here waiting for input or EOF
             cmd = "quit";
 
-        istringstream is(cmd);
+        StringSplitter splitter(cmd);
 
         token.clear(); // Avoid a stale if getline() returns empty or blank line
-        is >> skipws >> token;
+        token = splitter.next_token();
 
         if (token == "quit"
             || token == "stop")
@@ -206,8 +235,8 @@ void UCI::loop(int argc, char* argv[]) {
 #endif // !KAGGLE
             << "\nuciok" << sync_endl;
 
-        else if (token == "go")         go(pos, is, states);
-        else if (token == "position")   position(pos, is, states);
+        else if (token == "go")         go(pos, splitter, states);
+        else if (token == "position")   position(pos, splitter, states);
         else if (token == "ucinewgame") Search::clear();
         else if (token == "isready")    sync_cout << "readyok" << sync_endl;
 
@@ -215,7 +244,7 @@ void UCI::loop(int argc, char* argv[]) {
         // Do not use these commands during a search!
 #ifndef KAGGLE
         else if (token == "flip")     pos.flip();
-        else if (token == "bench")    bench(pos, is, states);
+        else if (token == "bench")    bench(pos, splitter, states);
         else if (token == "d")        sync_cout << pos << sync_endl;
         else if (token == "eval")     sync_cout << Eval::trace(pos) << sync_endl;
         else if (token == "compiler") sync_cout << compiler_info() << sync_endl;
@@ -239,14 +268,14 @@ string UCI::value(Value v) {
 
     assert(-VALUE_INFINITE < v && v < VALUE_INFINITE);
 
-    stringstream ss;
+    std::string s;
 
     if (abs(v) < VALUE_MATE - MAX_PLY)
-        ss << "cp " << v * 100 / PawnValueEg;
+        s += "cp " + std::to_string(v * 100 / PawnValueEg);
     else
-        ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;
+        s += "mate " + std::to_string((v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2);
 
-    return ss.str();
+    return s;
 }
 #endif // !KAGGLE
 

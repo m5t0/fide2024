@@ -26,6 +26,23 @@
 
 #include "types.h"
 
+std::vector<std::string> white_split(const std::string& str);
+
+class StringSplitter {
+public:
+    StringSplitter(const std::string& s) :buffer(white_split(s)), idx(0) {}
+    bool empty() const {
+        return idx == buffer.size();
+    }
+    std::string next_token() {
+        return buffer[idx++];
+    }
+
+private:
+    std::vector<std::string> buffer;
+    size_t idx;
+};
+
 class Position;
 
 namespace OptionValue {

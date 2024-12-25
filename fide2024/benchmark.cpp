@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "position.h"
+#include "uci.h"
 
 using namespace std;
 
@@ -109,17 +110,17 @@ const vector<string> Defaults = {
 /// bench 64 1 100000 default nodes -> search default positions for 100K nodes each
 /// bench 16 1 5 default perft -> run a perft 5 on default positions
 
-vector<string> setup_bench(const Position& current, istream& is) {
+vector<string> setup_bench(const Position& current, StringSplitter& splitter) {
 
   vector<string> fens, list;
-  string go, token;
+  string go;
 
   // Assign default values to missing arguments
-  string ttSize    = (is >> token) ? token : "16";
-  string threads   = (is >> token) ? token : "1";
-  string limit     = (is >> token) ? token : "13";
-  string fenFile   = (is >> token) ? token : "default";
-  string limitType = (is >> token) ? token : "depth";
+  string ttSize    = !splitter.empty() ? splitter.next_token() : "16";
+  string threads   = !splitter.empty() ? splitter.next_token() : "1";
+  string limit     = !splitter.empty() ? splitter.next_token() : "13";
+  string fenFile   = !splitter.empty() ? splitter.next_token() : "default";
+  string limitType = !splitter.empty() ? splitter.next_token() : "depth";
 
   go = limitType == "eval" ? "eval" : "go " + limitType + " " + limit;
 
