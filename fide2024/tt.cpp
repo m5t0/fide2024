@@ -80,33 +80,10 @@ void TranspositionTable::resize(size_t mbSize) {
 }
 
 
-/// TranspositionTable::clear() initializes the entire transposition table to zero,
-//  in a multi-threaded way.
+/// TranspositionTable::clear() initializes the entire transposition table to zero
 
 void TranspositionTable::clear() {
-
-  std::vector<std::thread> threads;
-
-  for (size_t idx = 0; idx < OptionValue::Threads; ++idx)
-  {
-      threads.emplace_back([this, idx]() {
-
-          // Thread binding gives faster search on systems with a first-touch policy
-          if (OptionValue::Threads > 8)
-              WinProcGroup::bindThisThread(idx);
-
-          // Each thread will zero its part of the hash table
-          const size_t stride = clusterCount / OptionValue::Threads,
-                       start  = stride * idx,
-                       len    = idx != OptionValue::Threads - 1 ?
-                                stride : clusterCount - start;
-
-          std::memset(&table[start], 0, len * sizeof(Cluster));
-      });
-  }
-
-  for (std::thread& th: threads)
-      th.join();
+  std::memset(table, 0, clusterCount * sizeof(Cluster));
 }
 
 /// TranspositionTable::probe() looks up the current position in the transposition
