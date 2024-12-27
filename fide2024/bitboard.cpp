@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <bitset>
-#include <memory>
 
 #include "bitboard.h"
 #include "misc.h"
@@ -37,10 +36,11 @@ Magic RookMagics[SQUARE_NB];
 Magic BishopMagics[SQUARE_NB];
 
 namespace {
-  Bitboard RookTable[SQUARE_NB];  // To store rook attacks
-  Bitboard BishopTable[SQUARE_NB]; // To store bishop attacks
 
-  void init_magics(int sz, Bitboard table[], Magic magics[], Direction directions[]);
+  Bitboard RookTable[0x19000];  // To store rook attacks
+  Bitboard BishopTable[0x1480]; // To store bishop attacks
+
+  void init_magics(Bitboard table[], Magic magics[], Direction directions[]);
 }
 
 
@@ -103,8 +103,8 @@ void Bitboards::init() {
   Direction RookDirections[] = { NORTH, EAST, SOUTH, WEST };
   Direction BishopDirections[] = { NORTH_EAST, SOUTH_EAST, SOUTH_WEST, NORTH_WEST };
 
-  init_magics(0x19000, RookTable, RookMagics, RookDirections);
-  init_magics(0x1480, BishopTable, BishopMagics, BishopDirections);
+  init_magics(RookTable, RookMagics, RookDirections);
+  init_magics(BishopTable, BishopMagics, BishopDirections);
 
   for (Square s1 = SQ_A1; s1 <= SQ_H8; ++s1)
   {
@@ -145,9 +145,7 @@ namespace {
   // www.chessprogramming.org/Magic_Bitboards. In particular, here we use the so
   // called "fancy" approach.
 
-  void init_magics(int sz, Bitboard table[], Magic magics[], Direction directions[]) {
-    auto tmp_table = std::unique_ptr<Bitboard[]>(new Bitboard[sz]);
-    std::fill(tmp_table.get(), tmp_table.get() + sz, 0);
+  void init_magics(Bitboard table[], Magic magics[], Direction directions[]) {
 
     // Optimal PRNG seeds to pick the correct magics in the shortest time
     int seeds[][RANK_NB] = { { 8977, 44560, 54343, 38998,  5731, 95205, 104912, 17020 },
@@ -172,7 +170,7 @@ namespace {
 
         // Set the offset for the attacks table of the square. We have individual
         // table sizes for each square with "Fancy Magic Bitboards".
-        m.attacks = s == SQ_A1 ? tmp_table.get() : magics[s - 1].attacks + size;
+        m.attacks = s == SQ_A1 ? table : magics[s - 1].attacks + size;
 
         // Use Carry-Rippler trick to enumerate all subsets of masks[s] and
         // store the corresponding sliding attack bitboard in reference[].
@@ -219,13 +217,6 @@ namespace {
                     break;
             }
         }
-    }
-
-    // tmp_table‚©‚çtable‚É’l‚ðˆÚ‚·
-    for (Square s = SQ_A1; s <= SQ_H8; ++s)
-    {
-        table[s] = *magics[s].attacks;
-        magics[s].attacks = table + s;
     }
   }
 }
