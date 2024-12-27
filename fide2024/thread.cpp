@@ -196,7 +196,7 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
   main()->nodes = main()->nmpMinPly = 0;
   main()->rootDepth = main()->completedDepth = 0;
   main()->rootMoves = rootMoves;
-  main()->rootPos.set(pos.fen(), &setupStates->back(), main());
+  main()->rootPos.set(pos.fen(), &setupStates->back());
 
   setupStates->back() = tmp;
 
