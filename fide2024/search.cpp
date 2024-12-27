@@ -234,6 +234,7 @@ void Thread::search() {
   Value bestValue, alpha, beta, delta;
   Move  lastBestMove = MOVE_NONE;
   Depth lastBestMoveDepth = 0;
+  MainThread* mainThread = (this == Threads.main() ? Threads.main() : nullptr);
   double timeReduction = 1, totBestMoveChanges = 0;
   Color us = rootPos.side_to_move();
   int iterIdx = 0;
@@ -247,12 +248,15 @@ void Thread::search() {
   bestValue = delta = alpha = -VALUE_INFINITE;
   beta = VALUE_INFINITE;
 
-  if (Threads.main()->previousScore == VALUE_INFINITE)
-      for (int i=0; i<4; ++i)
-          Threads.main()->iterValue[i] = VALUE_ZERO;
-  else
-      for (int i=0; i<4; ++i)
-          Threads.main()->iterValue[i] = Threads.main()->previousScore;
+  if (mainThread)
+  {
+      if (mainThread->previousScore == VALUE_INFINITE)
+          for (int i=0; i<4; ++i)
+              mainThread->iterValue[i] = VALUE_ZERO;
+      else
+          for (int i=0; i<4; ++i)
+              mainThread->iterValue[i] = mainThread->previousScore;
+  }
 
   size_t multiPV = OptionValue::MultiPV;
 
@@ -270,10 +274,11 @@ void Thread::search() {
   // Iterative deepening loop until requested to stop or the target depth is reached
   while (   ++rootDepth < MAX_PLY
          && !Threads.stop
-         && !(Limits.depth && rootDepth > Limits.depth))
+         && !(Limits.depth && mainThread && rootDepth > Limits.depth))
   {
       // Age out PV variability metric
-      totBestMoveChanges /= 2;
+      if (mainThread)
+          totBestMoveChanges /= 2;
 
       // Save the last iteration's scores before first PV line is searched and
       // all the move scores except the (new) PV are set to -VALUE_INFINITE.
@@ -341,7 +346,8 @@ void Thread::search() {
 #ifndef KAGGLE
               // When failing high/low give some update (without cluttering
               // the UI) before a re-search.
-              if (   multiPV == 1
+              if (   mainThread
+                  && multiPV == 1
                   && (bestValue <= alpha || bestValue >= beta)
                   && Time.elapsed() > 3000)
                   sync_cout << UCI::pv(rootPos, rootDepth, alpha, beta) << sync_endl;
@@ -355,7 +361,8 @@ void Thread::search() {
                   alpha = std::max(bestValue - delta, -VALUE_INFINITE);
 
                   failedHighCnt = 0;
-                  Threads.main()->stopOnPonderhit = false;
+                  if (mainThread)
+                      mainThread->stopOnPonderhit = false;
               }
               else if (bestValue >= beta)
               {
@@ -377,7 +384,8 @@ void Thread::search() {
           std::stable_sort(rootMoves.begin() + pvFirst, rootMoves.begin() + pvIdx + 1);
 
 #ifndef KAGGLE
-          if (Threads.stop || pvIdx + 1 == multiPV || Time.elapsed() > 3000)
+          if (    mainThread
+              && (Threads.stop || pvIdx + 1 == multiPV || Time.elapsed() > 3000))
               sync_cout << UCI::pv(rootPos, rootDepth, alpha, beta) << sync_endl;
 
 #endif // KAGGLE
@@ -397,18 +405,21 @@ void Thread::search() {
           && VALUE_MATE - bestValue <= 2 * Limits.mate)
           Threads.stop = true;
 
+      if (!mainThread)
+          continue;
+
       // Do we have time for the next iteration? Can we stop searching now?
       if (    Limits.use_time_management()
           && !Threads.stop
-          && !Threads.main()->stopOnPonderhit)
+          && !mainThread->stopOnPonderhit)
       {
-          double fallingEval = (332 + 6 * (Threads.main()->previousScore - bestValue)
-                                    + 6 * (Threads.main()->iterValue[iterIdx] - bestValue)) / 704.0;
+          double fallingEval = (332 +  6 * (mainThread->previousScore - bestValue)
+                                    +  6 * (mainThread->iterValue[iterIdx]  - bestValue)) / 704.0;
           fallingEval = new_clamp(fallingEval, 0.5, 1.5);
 
           // If the bestMove is stable over several iterations, reduce time accordingly
           timeReduction = lastBestMoveDepth + 9 < completedDepth ? 1.94 : 0.91;
-          double reduction = (1.41 + Threads.main()->previousTimeReduction) / (2.27 * timeReduction);
+          double reduction = (1.41 + mainThread->previousTimeReduction) / (2.27 * timeReduction);
 
           // Use part of the gained time from a previous stable move for the current move
           totBestMoveChanges += Threads.main()->bestMoveChanges;
@@ -422,24 +433,27 @@ void Thread::search() {
           {
               // If we are allowed to ponder do not stop the search now but
               // keep pondering until the GUI sends "ponderhit" or "stop".
-              if (Threads.main()->ponder)
-                  Threads.main()->stopOnPonderhit = true;
+              if (mainThread->ponder)
+                  mainThread->stopOnPonderhit = true;
               else
                   Threads.stop = true;
           }
           else if (   Threads.increaseDepth
-                   && !Threads.main()->ponder
+                   && !mainThread->ponder
                    && Time.elapsed() > Time.optimum() * fallingEval * reduction * bestMoveInstability * 0.6)
                    Threads.increaseDepth = false;
           else
                    Threads.increaseDepth = true;
       }
 
-      Threads.main()->iterValue[iterIdx] = bestValue;
+      mainThread->iterValue[iterIdx] = bestValue;
       iterIdx = (iterIdx + 1) & 3;
   }
 
-  Threads.main()->previousTimeReduction = timeReduction;
+  if (!mainThread)
+      return;
+
+  mainThread->previousTimeReduction = timeReduction;
 }
 
 

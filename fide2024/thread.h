@@ -115,7 +115,9 @@ private:
   std::unique_ptr<MainThread> main_thread;
 
   uint64_t accumulate(std::atomic<uint64_t> Thread::* member) const {
-    return (main_thread.get()->*member).load(std::memory_order_relaxed);
+    uint64_t sum = 0;
+    sum += (main_thread.get()->*member).load(std::memory_order_relaxed);
+    return sum;
   }
 };
 
