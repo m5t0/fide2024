@@ -37,7 +37,7 @@ namespace HyperbolaQsc {
 	};
 
 	/* Init */
-	constexpr std::array<Mask, 64> InitMask() {
+	std::array<Mask, 64> InitMask() {
 		int r = 0, f = 0, i = 0, j = 0, y = 0;
 		int d[64]{};
 
@@ -70,7 +70,8 @@ namespace HyperbolaQsc {
 		}
 		return MASK;
 	}
-	constexpr std::array<uint8_t, 512> InitRank() {
+
+	std::array<uint8_t, 512> InitRank() {
 
 		std::array<uint8_t, 512> rank_attack{};
 
@@ -96,19 +97,20 @@ namespace HyperbolaQsc {
 		}
 		return rank_attack;
 	}
-	const std::array<Mask, 64> mask = InitMask();
-	const std::array<uint8_t, 512> rank_attack = InitRank();
 
-	const auto Size = sizeof(mask) + sizeof(rank_attack);
+	std::array<Mask, 64> mask = InitMask();
+	std::array<uint8_t, 512> rank_attack = InitRank();
 
-	const uint64_t bit_bswap_constexpr(uint64_t b) {
+	auto Size = sizeof(mask) + sizeof(rank_attack);
+
+	uint64_t bit_bswap_constexpr(uint64_t b) {
 		b = ((b >> 8) & 0x00FF00FF00FF00FFULL) | ((b << 8) & 0xFF00FF00FF00FF00ULL);
 		b = ((b >> 16) & 0x0000FFFF0000FFFFULL) | ((b << 16) & 0xFFFF0000FFFF0000ULL);
 		b = ((b >> 32) & 0x00000000FFFFFFFFULL) | ((b << 32) & 0xFFFFFFFF00000000ULL);
 		return b;
 	}
 
-	const uint64_t bit_bswap(uint64_t b) {
+	uint64_t bit_bswap(uint64_t b) {
 #if defined(_MSC_VER)
 		return _byteswap_uint64(b);
 #elif defined(__GNUC__)
@@ -119,12 +121,12 @@ namespace HyperbolaQsc {
 	}
 
 	/* Generate attack using the hyperbola quintessence approach */
-	const uint64_t attack(uint64_t pieces, uint32_t x, uint64_t mask) {
+	uint64_t attack(uint64_t pieces, uint32_t x, uint64_t mask) {
 		uint64_t o = pieces & mask;
 		return ((o - (1ull << x)) ^ bit_bswap(bit_bswap(o) - (0x8000000000000000ull >> x))) & mask; //Daniel 28.04.2022 - Faster shift. Replaces (1ull << (s ^ 56))
 	}
 
-	const uint64_t horizontal_attack(uint64_t pieces, uint32_t x) {
+	uint64_t horizontal_attack(uint64_t pieces, uint32_t x) {
 		uint32_t file_mask = x & 7;
 		uint32_t rank_mask = x & 56;
 		uint64_t o = (pieces >> rank_mask) & 126;
@@ -132,27 +134,27 @@ namespace HyperbolaQsc {
 		return ((uint64_t)rank_attack[o * 4 + file_mask]) << rank_mask;
 	}
 
-	const uint64_t vertical_attack(uint64_t occ, uint32_t sq) {
+	uint64_t vertical_attack(uint64_t occ, uint32_t sq) {
 		return attack(occ, sq, mask[sq].vertical);
 	}
 
-	const uint64_t diagonal_attack(uint64_t occ, uint32_t sq) {
+	uint64_t diagonal_attack(uint64_t occ, uint32_t sq) {
 		return attack(occ, sq, mask[sq].diagonal);
 	}
 
-	const uint64_t antidiagonal_attack(uint64_t occ, uint32_t sq) {
+	uint64_t antidiagonal_attack(uint64_t occ, uint32_t sq) {
 		return attack(occ, sq, mask[sq].antidiagonal);
 	}
 
-	const uint64_t bishop_attack(int sq, uint64_t occ) {
+	uint64_t bishop_attack(int sq, uint64_t occ) {
 		return diagonal_attack(occ, sq) | antidiagonal_attack(occ, sq);
 	}
 
-	const uint64_t rook_attack(int sq, uint64_t occ) {
+	uint64_t rook_attack(int sq, uint64_t occ) {
 		return vertical_attack(occ, sq) | horizontal_attack(occ, sq);
 	}
 
-	const uint64_t Queen(int sq, uint64_t occ) {
+	uint64_t Queen(int sq, uint64_t occ) {
 		return bishop_attack(sq, occ) | rook_attack(sq, occ);
 	}
 }

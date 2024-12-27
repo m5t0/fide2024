@@ -26,8 +26,8 @@
 #include "types.h"
 
 namespace HyperbolaQsc {
-    const uint64_t rook_attack(int sq, uint64_t occ);
-    const uint64_t bishop_attack(int sq, uint64_t occ);
+    uint64_t rook_attack(int sq, uint64_t occ);
+    uint64_t bishop_attack(int sq, uint64_t occ);
 }
 
 
