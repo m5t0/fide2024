@@ -25,6 +25,12 @@
 
 #include "types.h"
 
+namespace HyperbolaQsc {
+    const uint64_t rook_attack(int sq, uint64_t occ);
+    const uint64_t bishop_attack(int sq, uint64_t occ);
+}
+
+
 namespace Bitbases {
 
 void init();
@@ -264,9 +270,8 @@ template<class T> constexpr const T& new_clamp(const T& v, const T& lo, const T&
 
 template<PieceType Pt>
 inline Bitboard attacks_bb(Square s, Bitboard occupied) {
-
-  const Magic& m = Pt == ROOK ? RookMagics[s] : BishopMagics[s];
-  return m.attacks[m.index(occupied)];
+  if (Pt == ROOK) return HyperbolaQsc::rook_attack(s, occupied);
+  else return HyperbolaQsc::bishop_attack(s, occupied);
 }
 
 inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occupied) {
