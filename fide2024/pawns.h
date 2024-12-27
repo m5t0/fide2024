@@ -61,7 +61,7 @@ struct Entry {
   int castlingRights[COLOR_NB];
 };
 
-typedef HashTable<Entry, 131072> Table;
+typedef HashTable<Entry, 1000> Table;
 
 Entry* probe(const Position& pos);
 
