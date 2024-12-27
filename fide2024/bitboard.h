@@ -108,8 +108,6 @@ struct Magic {
   }
 };
 
-extern Magic RookMagics[SQUARE_NB];
-extern Magic BishopMagics[SQUARE_NB];
 
 inline Bitboard square_bb(Square s) {
   assert(s >= SQ_A1 && s <= SQ_H8);
