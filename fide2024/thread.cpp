@@ -69,15 +69,11 @@ void Thread::clear() {
   mainHistory.fill(0);
   captureHistory.fill(0);
 
-  for (bool inCheck : { false, true })
-    for (StatsType c : { NoCaptures, Captures })
-      for (auto& to : continuationHistory[inCheck][c])
-        for (auto& h : to)
-          h->fill(0);
+  for (auto& to : continuationHistory)
+    for (auto& h : to)
+      h->fill(0);
 
-  for (bool inCheck : { false, true })
-    for (StatsType c : { NoCaptures, Captures })
-      continuationHistory[inCheck][c][NO_PIECE][0]->fill(Search::CounterMovePruneThreshold - 1);
+  continuationHistory[NO_PIECE][0]->fill(Search::CounterMovePruneThreshold - 1);
 }
 
 /// Thread::start_searching() wakes up the thread that will start the search
@@ -135,18 +131,14 @@ void Thread::idle_loop() {
 
 void ThreadPool::set(size_t requested) {
 
-  if (size() > 0) { // destroy any existing thread(s)
+  if (main_thread) { // destroy any existing thread(s)
       main()->wait_for_search_finished();
 
-      while (size() > 0)
-          delete back(), pop_back();
+      main_thread.reset();
   }
 
   if (requested > 0) { // create new thread(s)
-      push_back(new MainThread(0));
-
-      while (size() < requested)
-          push_back(new Thread(size()));
+      main_thread.reset(new MainThread(0));
       clear();
 
       // Reallocate the hash with the new threadpool size
@@ -161,8 +153,7 @@ void ThreadPool::set(size_t requested) {
 
 void ThreadPool::clear() {
 
-  for (Thread* th : *this)
-      th->clear();
+  main()->clear();
 
   main()->callsCnt = 0;
   main()->previousScore = VALUE_INFINITE;
@@ -202,13 +193,10 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
   // is shared by threads but is accessed in read-only mode.
   StateInfo tmp = setupStates->back();
 
-  for (Thread* th : *this)
-  {
-      th->nodes = th->nmpMinPly = 0;
-      th->rootDepth = th->completedDepth = 0;
-      th->rootMoves = rootMoves;
-      th->rootPos.set(pos.fen(), &setupStates->back(), th);
-  }
+  main()->nodes = main()->nmpMinPly = 0;
+  main()->rootDepth = main()->completedDepth = 0;
+  main()->rootMoves = rootMoves;
+  main()->rootPos.set(pos.fen(), &setupStates->back());
 
   setupStates->back() = tmp;
 

@@ -20,9 +20,145 @@
 
 #include <algorithm>
 #include <bitset>
+#include <stdint.h>
+#include <array>
+#include <type_traits>
 
 #include "bitboard.h"
 #include "misc.h"
+
+
+// modified from this code: https://github.com/Gigantua/Chess_Movegen/blob/a76800a55702788ac4f354e6e9fab563b474ec93/Hyperbola.hpp
+namespace HyperbolaQsc {
+	struct Mask {
+		uint64_t diagonal;
+		uint64_t antidiagonal;
+		uint64_t vertical;
+	};
+
+	/* Init */
+	std::array<Mask, 64> InitMask() {
+		int r = 0, f = 0, i = 0, j = 0, y = 0;
+		int d[64]{};
+
+		std::array<Mask, 64> MASK{};
+
+		for (int x = 0; x < 64; ++x) {
+			for (y = 0; y < 64; ++y) d[y] = 0;
+			// directions
+			for (i = -1; i <= 1; ++i)
+				for (j = -1; j <= 1; ++j) {
+					if (i == 0 && j == 0) continue;
+					f = x & 07;
+					r = x >> 3;
+					for (r += i, f += j; 0 <= r && r < 8 && 0 <= f && f < 8; r += i, f += j) {
+						y = 8 * r + f;
+						d[y] = 8 * i + j;
+					}
+				}
+
+			// uint64_t mask
+			Mask& mask = MASK[x];
+			for (y = x - 9; y >= 0 && d[y] == -9; y -= 9) mask.diagonal |= (1ull << y);
+			for (y = x + 9; y < 64 && d[y] == 9; y += 9) mask.diagonal |= (1ull << y);
+
+			for (y = x - 7; y >= 0 && d[y] == -7; y -= 7) mask.antidiagonal |= (1ull << y);
+			for (y = x + 7; y < 64 && d[y] == 7; y += 7) mask.antidiagonal |= (1ull << y);
+
+			for (y = x - 8; y >= 0; y -= 8) mask.vertical |= (1ull << y);
+			for (y = x + 8; y < 64; y += 8) mask.vertical |= (1ull << y);
+		}
+		return MASK;
+	}
+
+	std::array<uint8_t, 512> InitRank() {
+
+		std::array<uint8_t, 512> rank_attack{};
+
+		for (int x = 0; x < 64; ++x) {
+			for (int f = 0; f < 8; ++f) {
+				int o = 2 * x;
+				int x2{}, y2{};
+				int b{};
+
+				y2 = 0;
+				for (x2 = f - 1; x2 >= 0; --x2) {
+					b = 1 << x2;
+					y2 |= b;
+					if ((o & b) == b) break;
+				}
+				for (x2 = f + 1; x2 < 8; ++x2) {
+					b = 1 << x2;
+					y2 |= b;
+					if ((o & b) == b) break;
+				}
+				rank_attack[x * 8ull + f] = y2;
+			}
+		}
+		return rank_attack;
+	}
+
+	std::array<Mask, 64> mask = InitMask();
+	std::array<uint8_t, 512> rank_attack = InitRank();
+
+	auto Size = sizeof(mask) + sizeof(rank_attack);
+
+	uint64_t bit_bswap_constexpr(uint64_t b) {
+		b = ((b >> 8) & 0x00FF00FF00FF00FFULL) | ((b << 8) & 0xFF00FF00FF00FF00ULL);
+		b = ((b >> 16) & 0x0000FFFF0000FFFFULL) | ((b << 16) & 0xFFFF0000FFFF0000ULL);
+		b = ((b >> 32) & 0x00000000FFFFFFFFULL) | ((b << 32) & 0xFFFFFFFF00000000ULL);
+		return b;
+	}
+
+	uint64_t bit_bswap(uint64_t b) {
+#if defined(_MSC_VER)
+		return _byteswap_uint64(b);
+#elif defined(__GNUC__)
+		return __builtin_bswap64(b);
+#else
+		return bit_bswap_constexpr(b);
+#endif
+	}
+
+	/* Generate attack using the hyperbola quintessence approach */
+	uint64_t attack(uint64_t pieces, uint32_t x, uint64_t mask) {
+		uint64_t o = pieces & mask;
+		return ((o - (1ull << x)) ^ bit_bswap(bit_bswap(o) - (0x8000000000000000ull >> x))) & mask; //Daniel 28.04.2022 - Faster shift. Replaces (1ull << (s ^ 56))
+	}
+
+	uint64_t horizontal_attack(uint64_t pieces, uint32_t x) {
+		uint32_t file_mask = x & 7;
+		uint32_t rank_mask = x & 56;
+		uint64_t o = (pieces >> rank_mask) & 126;
+
+		return ((uint64_t)rank_attack[o * 4 + file_mask]) << rank_mask;
+	}
+
+	uint64_t vertical_attack(uint64_t occ, uint32_t sq) {
+		return attack(occ, sq, mask[sq].vertical);
+	}
+
+	uint64_t diagonal_attack(uint64_t occ, uint32_t sq) {
+		return attack(occ, sq, mask[sq].diagonal);
+	}
+
+	uint64_t antidiagonal_attack(uint64_t occ, uint32_t sq) {
+		return attack(occ, sq, mask[sq].antidiagonal);
+	}
+
+	uint64_t bishop_attack(int sq, uint64_t occ) {
+		return diagonal_attack(occ, sq) | antidiagonal_attack(occ, sq);
+	}
+
+	uint64_t rook_attack(int sq, uint64_t occ) {
+		return vertical_attack(occ, sq) | horizontal_attack(occ, sq);
+	}
+
+	uint64_t Queen(int sq, uint64_t occ) {
+		return bishop_attack(sq, occ) | rook_attack(sq, occ);
+	}
+}
+
 
 uint8_t PopCnt16[1 << 16];
 uint8_t SquareDistance[SQUARE_NB][SQUARE_NB];
@@ -31,17 +167,6 @@ Bitboard SquareBB[SQUARE_NB];
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 Bitboard PseudoAttacks[PIECE_TYPE_NB][SQUARE_NB];
 Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
-
-Magic RookMagics[SQUARE_NB];
-Magic BishopMagics[SQUARE_NB];
-
-namespace {
-
-  Bitboard RookTable[0x19000];  // To store rook attacks
-  Bitboard BishopTable[0x1480]; // To store bishop attacks
-
-  void init_magics(Bitboard table[], Magic magics[], Direction directions[]);
-}
 
 
 /// Bitboards::pretty() returns an ASCII representation of a bitboard suitable
@@ -100,12 +225,6 @@ void Bitboards::init() {
          PseudoAttacks[KNIGHT][s] |= landing_square_bb(s, step);
   }
 
-  Direction RookDirections[] = { NORTH, EAST, SOUTH, WEST };
-  Direction BishopDirections[] = { NORTH_EAST, SOUTH_EAST, SOUTH_WEST, NORTH_WEST };
-
-  init_magics(RookTable, RookMagics, RookDirections);
-  init_magics(BishopTable, BishopMagics, BishopDirections);
-
   for (Square s1 = SQ_A1; s1 <= SQ_H8; ++s1)
   {
       PseudoAttacks[QUEEN][s1]  = PseudoAttacks[BISHOP][s1] = attacks_bb<BISHOP>(s1, 0);
@@ -115,108 +234,5 @@ void Bitboards::init() {
           for (Square s2 = SQ_A1; s2 <= SQ_H8; ++s2)
               if (PseudoAttacks[pt][s1] & s2)
                   LineBB[s1][s2] = (attacks_bb(pt, s1, 0) & attacks_bb(pt, s2, 0)) | s1 | s2;
-  }
-}
-
-
-namespace {
-
-  Bitboard sliding_attack(Direction directions[], Square sq, Bitboard occupied) {
-
-    Bitboard attack = 0;
-
-    for (int i = 0; i < 4; ++i)
-        for (Square s = sq + directions[i];
-             is_ok(s) && distance(s, s - directions[i]) == 1;
-             s += directions[i])
-        {
-            attack |= s;
-
-            if (occupied & s)
-                break;
-        }
-
-    return attack;
-  }
-
-
-  // init_magics() computes all rook and bishop attacks at startup. Magic
-  // bitboards are used to look up attacks of sliding pieces. As a reference see
-  // www.chessprogramming.org/Magic_Bitboards. In particular, here we use the so
-  // called "fancy" approach.
-
-  void init_magics(Bitboard table[], Magic magics[], Direction directions[]) {
-
-    // Optimal PRNG seeds to pick the correct magics in the shortest time
-    int seeds[][RANK_NB] = { { 8977, 44560, 54343, 38998,  5731, 95205, 104912, 17020 },
-                             {  728, 10316, 55013, 32803, 12281, 15100,  16645,   255 } };
-
-    Bitboard occupancy[4096], reference[4096], edges, b;
-    int epoch[4096] = {}, cnt = 0, size = 0;
-
-    for (Square s = SQ_A1; s <= SQ_H8; ++s)
-    {
-        // Board edges are not considered in the relevant occupancies
-        edges = ((Rank1BB | Rank8BB) & ~rank_bb(s)) | ((FileABB | FileHBB) & ~file_bb(s));
-
-        // Given a square 's', the mask is the bitboard of sliding attacks from
-        // 's' computed on an empty board. The index must be big enough to contain
-        // all the attacks for each possible subset of the mask and so is 2 power
-        // the number of 1s of the mask. Hence we deduce the size of the shift to
-        // apply to the 64 or 32 bits word to get the index.
-        Magic& m = magics[s];
-        m.mask  = sliding_attack(directions, s, 0) & ~edges;
-        m.shift = (Is64Bit ? 64 : 32) - popcount(m.mask);
-
-        // Set the offset for the attacks table of the square. We have individual
-        // table sizes for each square with "Fancy Magic Bitboards".
-        m.attacks = s == SQ_A1 ? table : magics[s - 1].attacks + size;
-
-        // Use Carry-Rippler trick to enumerate all subsets of masks[s] and
-        // store the corresponding sliding attack bitboard in reference[].
-        b = size = 0;
-        do {
-            occupancy[size] = b;
-            reference[size] = sliding_attack(directions, s, b);
-
-            if (HasPext)
-                m.attacks[pext(b, m.mask)] = reference[size];
-
-            size++;
-            b = (b - m.mask) & m.mask;
-        } while (b);
-
-        if (HasPext)
-            continue;
-
-        PRNG rng(seeds[Is64Bit][rank_of(s)]);
-
-        // Find a magic for square 's' picking up an (almost) random number
-        // until we find the one that passes the verification test.
-        for (int i = 0; i < size; )
-        {
-            for (m.magic = 0; popcount((m.magic * m.mask) >> 56) < 6; )
-                m.magic = rng.sparse_rand<Bitboard>();
-
-            // A good magic must map every possible occupancy to an index that
-            // looks up the correct sliding attack in the attacks[s] database.
-            // Note that we build up the database for square 's' as a side
-            // effect of verifying the magic. Keep track of the attempt count
-            // and save it in epoch[], little speed-up trick to avoid resetting
-            // m.attacks[] after every failed attempt.
-            for (++cnt, i = 0; i < size; ++i)
-            {
-                unsigned idx = m.index(occupancy[i]);
-
-                if (epoch[idx] < cnt)
-                {
-                    epoch[idx] = cnt;
-                    m.attacks[idx] = reference[i];
-                }
-                else if (m.attacks[idx] != reference[i])
-                    break;
-            }
-        }
-    }
   }
 }

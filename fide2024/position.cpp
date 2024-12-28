@@ -150,7 +150,7 @@ void Position::init() {
 /// This function is not very robust - make sure that input FENs are correct,
 /// this is assumed to be the responsibility of the GUI.
 
-Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
+Position& Position::set(const string& fenStr, StateInfo* si) {
 /*
    A FEN string defines a particular position using only the ASCII character set.
 
@@ -267,7 +267,6 @@ Position& Position::set(const string& fenStr, StateInfo* si, Thread* th) {
   // handle also common incorrect FEN with fullmove = 0.
   gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
 
-  thisThread = th;
   set_state(st);
 
 #ifndef KAGGLE
@@ -375,7 +374,7 @@ Position& Position::set(const string& code, Color c, StateInfo* si) {
   string fenStr = "8/" + sides[0] + char(8 - sides[0].length() + '0') + "/8/8/8/8/"
                        + sides[1] + char(8 - sides[1].length() + '0') + "/8 w - - 0 10";
 
-  return set(fenStr, si, nullptr);
+  return set(fenStr, si);
 }
 
 
@@ -675,7 +674,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   assert(is_ok(m));
   assert(&newSt != st);
 
-  thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
+  Threads.main()->nodes.fetch_add(1, std::memory_order_relaxed);
   Key k = st->key ^ Zobrist::side;
 
   // Copy some fields of the old state to our new StateInfo object except the
@@ -746,7 +745,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       // Update material hash key and prefetch access to materialTable
       k ^= Zobrist::psq[captured][capsq];
       st->materialKey ^= Zobrist::psq[captured][pieceCount[captured]];
-      prefetch(thisThread->materialTable[st->materialKey]);
+      prefetch(Threads.main()->materialTable[st->materialKey]);
 
       // Reset rule 50 counter
       st->rule50 = 0;
@@ -1216,7 +1215,7 @@ void Position::flip() {
   std::getline(ss, token); // Half and full moves
   f += token;
 
-  set(f, st, this_thread());
+  set(f, st);
 
 #ifndef KAGGLE
   assert(pos_is_ok());

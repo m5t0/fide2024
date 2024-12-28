@@ -34,8 +34,8 @@ namespace OptionValue {
     constexpr int Contempt = 24;
     constexpr int Threads = 1;
     // 64bitÇ»ÇÁç≈ëÂ131072ÅA32bitÇ»ÇÁç≈ëÂ2048
-    constexpr int Hash = 16;
-    constexpr bool Ponder = true;
+    constexpr int Hash = 1;
+    constexpr bool Ponder = false;
     constexpr int MultiPV = 1;
     // min: 0, max: 5000
     constexpr int MoveOverhead = 30;

@@ -78,7 +78,7 @@ public:
   Position& operator=(const Position&) = delete;
 
   // FEN string input/output
-  Position& set(const std::string& fenStr, StateInfo* si, Thread* th);
+  Position& set(const std::string& fenStr, StateInfo* si);
   Position& set(const std::string& code, Color c, StateInfo* si);
   const std::string fen() const;
 
@@ -152,7 +152,6 @@ public:
   // Other properties of the position
   Color side_to_move() const;
   int game_ply() const;
-  Thread* this_thread() const;
   bool is_draw(int ply) const;
   bool has_game_cycle(int ply) const;
   bool has_repeated() const;
@@ -193,7 +192,6 @@ private:
   int gamePly;
   Color sideToMove;
   Score psq;
-  Thread* thisThread;
   StateInfo* st;
 };
 
@@ -392,10 +390,6 @@ inline bool Position::capture(Move m) const {
 
 inline Piece Position::captured_piece() const {
   return st->capturedPiece;
-}
-
-inline Thread* Position::this_thread() const {
-  return thisThread;
 }
 
 inline void Position::put_piece(Piece pc, Square s) {

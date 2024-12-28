@@ -69,7 +69,7 @@ namespace {
             return;
 
         states = StateListPtr(new std::deque<StateInfo>(1)); // Drop old and create a new one
-        pos.set(fen, &states->back(), Threads.main());
+        pos.set(fen, &states->back());
 
         // Parse move list (if any)
         while (is >> token && (m = UCI::to_move(pos, token)) != MOVE_NONE)
@@ -174,7 +174,7 @@ void UCI::loop(int argc, char* argv[]) {
     string token, cmd;
     StateListPtr states(new std::deque<StateInfo>(1));
 
-    pos.set(StartFEN, &states->back(), Threads.main());
+    pos.set(StartFEN, &states->back());
 
     for (int i = 1; i < argc; ++i)
         cmd += std::string(argv[i]) + " ";
