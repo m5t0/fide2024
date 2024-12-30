@@ -49,6 +49,7 @@ struct Stack {
   Value staticEval;
   int statScore;
   int moveCount;
+  bool inCheck;
 };
 
 
@@ -71,7 +72,6 @@ struct RootMove {
   int selDepth = 0;
   int tbRank = 0;
   int bestMoveCount = 0;
-  Value tbScore;
   std::vector<Move> pv;
 };
 
@@ -83,14 +83,14 @@ typedef std::vector<RootMove> RootMoves;
 
 struct LimitsType {
 
-  LimitsType() { // Init explicitly due to broken value-initialization of non POD in MSVC
+  LimitsType(): startTime(0) { // Init explicitly due to broken value-initialization of non POD in MSVC
     time[WHITE] = time[BLACK] = inc[WHITE] = inc[BLACK] = npmsec = movetime = TimePoint(0);
     movestogo = depth = mate = perft = infinite = 0;
     nodes = 0;
   }
 
   bool use_time_management() const {
-    return !(mate | movetime | depth | nodes | perft | infinite);
+    return time[WHITE] || time[BLACK];
   }
 
   std::vector<Move> searchmoves;

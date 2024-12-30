@@ -194,7 +194,7 @@ const std::string Bitboards::pretty(Bitboard b) {
 void Bitboards::init() {
 
   for (unsigned i = 0; i < (1 << 16); ++i)
-      PopCnt16[i] = std::bitset<16>(i).count();
+	  PopCnt16[i] = uint8_t(std::bitset<16>(i).count());
 
   for (Square s = SQ_A1; s <= SQ_H8; ++s)
       SquareBB[s] = (1ULL << s);
@@ -203,36 +203,23 @@ void Bitboards::init() {
       for (Square s2 = SQ_A1; s2 <= SQ_H8; ++s2)
           SquareDistance[s1][s2] = std::max(distance<File>(s1, s2), distance<Rank>(s1, s2));
 
-  for (Square s = SQ_A1; s <= SQ_H8; ++s)
-  {
-      PawnAttacks[WHITE][s] = pawn_attacks_bb<WHITE>(square_bb(s));
-      PawnAttacks[BLACK][s] = pawn_attacks_bb<BLACK>(square_bb(s));
-  }
-
-  // Helper returning the target bitboard of a step from a square
-  auto landing_square_bb = [&](Square s, int step)
-  {
-      Square to = Square(s + step);
-      return is_ok(to) && distance(s, to) <= 2 ? square_bb(to) : Bitboard(0);
-  };
-
-  for (Square s = SQ_A1; s <= SQ_H8; ++s)
-  {
-      for (int step : {-9, -8, -7, -1, 1, 7, 8, 9} )
-         PseudoAttacks[KING][s] |= landing_square_bb(s, step);
-
-      for (int step : {-17, -15, -10, -6, 6, 10, 15, 17} )
-         PseudoAttacks[KNIGHT][s] |= landing_square_bb(s, step);
-  }
-
   for (Square s1 = SQ_A1; s1 <= SQ_H8; ++s1)
   {
-      PseudoAttacks[QUEEN][s1]  = PseudoAttacks[BISHOP][s1] = attacks_bb<BISHOP>(s1, 0);
-      PseudoAttacks[QUEEN][s1] |= PseudoAttacks[  ROOK][s1] = attacks_bb<  ROOK>(s1, 0);
+	  PawnAttacks[WHITE][s1] = pawn_attacks_bb<WHITE>(square_bb(s1));
+	  PawnAttacks[BLACK][s1] = pawn_attacks_bb<BLACK>(square_bb(s1));
 
-      for (PieceType pt : { BISHOP, ROOK })
-          for (Square s2 = SQ_A1; s2 <= SQ_H8; ++s2)
-              if (PseudoAttacks[pt][s1] & s2)
-                  LineBB[s1][s2] = (attacks_bb(pt, s1, 0) & attacks_bb(pt, s2, 0)) | s1 | s2;
+	  for (int step : {-9, -8, -7, -1, 1, 7, 8, 9})
+		  PseudoAttacks[KING][s1] |= safe_destination(s1, step);
+
+	  for (int step : {-17, -15, -10, -6, 6, 10, 15, 17})
+		  PseudoAttacks[KNIGHT][s1] |= safe_destination(s1, step);
+
+	  PseudoAttacks[QUEEN][s1] = PseudoAttacks[BISHOP][s1] = attacks_bb<BISHOP>(s1, 0);
+	  PseudoAttacks[QUEEN][s1] |= PseudoAttacks[ROOK][s1] = attacks_bb<  ROOK>(s1, 0);
+
+	  for (PieceType pt : { BISHOP, ROOK })
+		  for (Square s2 = SQ_A1; s2 <= SQ_H8; ++s2)
+			  if (PseudoAttacks[pt][s1] & s2)
+				  LineBB[s1][s2] = (attacks_bb(pt, s1, 0) & attacks_bb(pt, s2, 0)) | s1 | s2;
   }
 }

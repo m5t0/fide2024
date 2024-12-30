@@ -53,7 +53,7 @@ Thread::~Thread() {
 
 /// Thread::bestMoveCount(Move move) return best move counter for the given root move
 
-int Thread::best_move_count(Move move) {
+int Thread::best_move_count(Move move) const {
 
   auto rm = std::find(rootMoves.begin() + pvIdx,
                       rootMoves.begin() + pvLast, move);
@@ -67,6 +67,7 @@ void Thread::clear() {
 
   counterMoves.fill(MOVE_NONE);
   mainHistory.fill(0);
+  lowPlyHistory.fill(0);
   captureHistory.fill(0);
 
   for (auto& to : continuationHistory)
@@ -156,7 +157,7 @@ void ThreadPool::clear() {
   main()->clear();
 
   main()->callsCnt = 0;
-  main()->previousScore = VALUE_INFINITE;
+  main()->bestPreviousScore = VALUE_INFINITE;
   main()->previousTimeReduction = 1.0;
 }
 
@@ -193,7 +194,8 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
   // is shared by threads but is accessed in read-only mode.
   StateInfo tmp = setupStates->back();
 
-  main()->nodes = main()->nmpMinPly = 0;
+  main()->nodes = main()->bestMoveChanges = 0;
+  main()->nmpMinPly = 0;
   main()->rootDepth = main()->completedDepth = 0;
   main()->rootMoves = rootMoves;
   main()->rootPos.set(pos.fen(), &setupStates->back());

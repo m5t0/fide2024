@@ -29,7 +29,6 @@ class Position;
 
 namespace Eval {
 
-constexpr Value Tempo = Value(28); // Must be visible to search
 #ifndef KAGGLE
 std::string trace(const Position& pos);
 #endif // !KAGGLE

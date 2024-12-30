@@ -54,6 +54,7 @@ Move to_move(const Position& pos, std::string& str);
 #ifndef KAGGLE
 std::string value(Value v);
 std::string pv(const Position& pos, Depth depth, Value alpha, Value beta);
+std::string wdl(Value v, int ply);
 
 #endif // KAGGLE
 
