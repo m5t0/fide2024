@@ -811,10 +811,13 @@ moves_loop: // When in check, search starts from here
 
       ss->moveCount = ++moveCount;
 
+#ifndef KAGGLE
       if (rootNode && Time.elapsed() > 3000)
           sync_cout << "info depth " << depth
                     << " currmove " << UCI::move(move)
                     << " currmovenumber " << moveCount + Threads.main()->pvIdx << sync_endl;
+#endif // KAGGLE
+
       if (PvNode)
           (ss+1)->pv = nullptr;
 
