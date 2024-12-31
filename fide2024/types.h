@@ -358,6 +358,10 @@ constexpr Square flip_file(Square s) { // Swap A1 <-> H1
     return Square(s ^ SQ_H1);
 }
 
+constexpr Piece operator~(Piece pc) {
+    return Piece(pc ^ 8); // Swap color of piece B_KNIGHT <-> W_KNIGHT
+}
+
 inline File map_to_queenside(File f) {
   return std::min(f, File(FILE_H - f)); // Map files ABCDEFGH to files ABCDDCBA
 }

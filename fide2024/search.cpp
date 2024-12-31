@@ -1237,7 +1237,7 @@ moves_loop: // When in check, search starts from here
     Move ttMove, move, bestMove;
     Depth ttDepth;
     Value bestValue, value, ttValue, futilityValue, futilityBase, oldAlpha;
-    bool ttHit, pvHit, givesCheck, captureOrPromotion;
+    bool ttHit, pvHit, givesCheck;
     int moveCount;
 
     if (PvNode)
@@ -1338,7 +1338,6 @@ moves_loop: // When in check, search starts from here
       assert(is_ok(move));
 
       givesCheck = pos.gives_check(move);
-      captureOrPromotion = pos.capture_or_promotion(move);
 
       moveCount++;
 

@@ -121,9 +121,9 @@ namespace HyperbolaQsc {
 	}
 
 	/* Generate attack using the hyperbola quintessence approach */
-	uint64_t attack(uint64_t pieces, uint32_t x, uint64_t mask) {
-		uint64_t o = pieces & mask;
-		return ((o - (1ull << x)) ^ bit_bswap(bit_bswap(o) - (0x8000000000000000ull >> x))) & mask; //Daniel 28.04.2022 - Faster shift. Replaces (1ull << (s ^ 56))
+	uint64_t attack(uint64_t pieces, uint32_t x, uint64_t bit_mask) {
+		uint64_t o = pieces & bit_mask;
+		return ((o - (1ull << x)) ^ bit_bswap(bit_bswap(o) - (0x8000000000000000ull >> x))) & bit_mask; //Daniel 28.04.2022 - Faster shift. Replaces (1ull << (s ^ 56))
 	}
 
 	uint64_t horizontal_attack(uint64_t pieces, uint32_t x) {

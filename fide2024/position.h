@@ -200,11 +200,11 @@ extern std::ostream& operator<<(std::ostream& os, const Position& pos);
 #endif // KAGGLE
 
 inline Color Position::side_to_move() const {
-  assert(is_ok(s));
   return sideToMove;
 }
 
 inline Piece Position::piece_on(Square s) const {
+  assert(is_ok(s));
   return board[s];
 }
 

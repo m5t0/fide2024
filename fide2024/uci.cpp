@@ -23,6 +23,13 @@
 #include <sstream>
 #include <string>
 
+#ifndef KAGGLE
+
+#include <cmath>
+
+#endif // !KAGGLE
+
+
 #include "evaluate.h"
 #include "movegen.h"
 #include "position.h"

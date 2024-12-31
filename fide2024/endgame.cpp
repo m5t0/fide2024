@@ -354,10 +354,6 @@ ScaleFactor Endgame<KBPsK>::operator()(const Position& pos) const {
       // Get the least advanced weakSide pawn
       Square weakPawn = frontmost_sq(strongSide, pos.pieces(weakSide, PAWN));
 
-      Square strongKingSq = pos.square<KING>(strongSide);
-      Square weakKingSq = pos.square<KING>(weakSide);
-      Square bishopSq = pos.square<BISHOP>(strongSide);
-
       // There's potential for a draw if our pawn is blocked on the 7th rank,
       // the bishop cannot attack it or they only have one pawn left
       // the bishop cannot attack it or they only have one pawn left.
