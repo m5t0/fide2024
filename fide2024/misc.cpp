@@ -308,7 +308,7 @@ void prefetch(void* addr) {
 
 void* aligned_ttmem_alloc(size_t allocSize, void*& mem) {
 
-    constexpr size_t alignment = 2 * 1024 * 1024; // assumed 2MB page sizes
+    constexpr size_t alignment = 1024 * 1024; // assumed 1MB page sizes
     size_t size = ((allocSize + alignment - 1) / alignment) * alignment; // multiple of alignment
     if (posix_memalign(&mem, alignment, size))
         mem = nullptr;
