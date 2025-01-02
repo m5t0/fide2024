@@ -160,7 +160,9 @@ namespace HyperbolaQsc {
 }
 
 
+#ifndef USE_POPCNT
 uint8_t PopCnt16[1 << 16];
+#endif // !USE_POPCNT
 uint8_t SquareDistance[SQUARE_NB][SQUARE_NB];
 
 Bitboard SquareBB[SQUARE_NB];
@@ -192,9 +194,10 @@ const std::string Bitboards::pretty(Bitboard b) {
 /// startup and relies on global objects to be already zero-initialized.
 
 void Bitboards::init() {
-
+#ifndef USE_POPCNT
   for (unsigned i = 0; i < (1 << 16); ++i)
 	  PopCnt16[i] = uint8_t(std::bitset<16>(i).count());
+#endif // !USE_POPCNT
 
   for (Square s = SQ_A1; s <= SQ_H8; ++s)
       SquareBB[s] = (1ULL << s);
