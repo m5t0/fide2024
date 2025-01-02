@@ -13,9 +13,12 @@ add_executable(fide2024 ${H_SOURCES} ${CPP_SOURCES} ${H_SOURCES_SYZYGY} ${CPP_SO
 # target_link_libraries(fide2024 pthread)
 # target_link_libraries(fide2024_lib pthread)
 
+target_compile_definitions(fide2024 PRIVATE USE_POPCNT=1)
+target_compile_definitions(fide2024_lib PRIVATE USE_POPCNT=1)
+
 if(IS_KAGGLE_ENV)
-  target_compile_definitions(fide2024 PRIVATE KAGGLE=1 USE_POPCNT=1)
-  target_compile_definitions(fide2024_lib PRIVATE KAGGLE=1 USE_POPCNT=1)
+  target_compile_definitions(fide2024 PRIVATE KAGGLE=1)
+  target_compile_definitions(fide2024_lib PRIVATE KAGGLE=1)
 endif()
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
