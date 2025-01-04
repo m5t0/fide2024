@@ -31,7 +31,7 @@ class Position;
 namespace OptionValue {
 
     // min: -100, max: 100
-    constexpr int Contempt = 10;
+    constexpr int Contempt = 24;
     constexpr int Threads = 1;
     // 64bit‚È‚çÅ‘å131072A32bit‚È‚çÅ‘å2048
     constexpr int Hash = 1;
