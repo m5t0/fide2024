@@ -723,7 +723,7 @@ namespace {
             return probcutBeta;
 
         assert(probcutBeta < VALUE_INFINITE);
-        MovePicker mp(pos, ttMove, probcutBeta - ss->staticEval, &captureHistory);
+        MovePicker mp(pos, ttMove, probcutBeta - ss->staticEval, &captureHistory, &Threads.main()->pawnHistory);
         int probCutCount = 0;
 
         while ((move = mp.next_move()) != MOVE_NONE
@@ -786,6 +786,7 @@ moves_loop: // When in check, search starts from here
                                       &Threads.main()->lowPlyHistory,
                                       &captureHistory,
                                       contHist,
+                                      &Threads.main()->pawnHistory,
                                       countermove,
                                       ss->killers,
                                       ss->ply);
@@ -857,10 +858,10 @@ moves_loop: // When in check, search starts from here
                   && !ss->inCheck
                   && ss->staticEval + 284 + 188 * lmrDepth <= alpha
                   && (*contHist[0])[movedPiece][to_sq(move)]
-                    + (*contHist[0])[movedPiece][to_sq(move)]
-                    + (*contHist[1])[movedPiece][to_sq(move)]
-                    + (*contHist[3])[movedPiece][to_sq(move)]
-                    + (*contHist[5])[movedPiece][to_sq(move)] / 2 < 28388)
+                  + (*contHist[0])[movedPiece][to_sq(move)]
+                  + (*contHist[1])[movedPiece][to_sq(move)]
+                  + (*contHist[3])[movedPiece][to_sq(move)]
+                  + (*contHist[5])[movedPiece][to_sq(move)] / 2 < 28388)
                   continue;
 
               // Prune moves with negative SEE (~20 Elo)
@@ -1353,6 +1354,7 @@ moves_loop: // When in check, search starts from here
     MovePicker mp(pos, ttMove, depth, &Threads.main()->mainHistory,
                                       &Threads.main()->captureHistory,
                                       contHist,
+                                      &Threads.main()->pawnHistory,
                                       to_sq((ss-1)->currentMove));
 
     // Loop through the moves until no moves remain or a beta cutoff occurs
@@ -1586,6 +1588,9 @@ moves_loop: // When in check, search starts from here
 
     if (depth > 11 && ss->ply < MAX_LPH)
         Threads.main()->lowPlyHistory[ss->ply][from_to(move)] << stat_bonus(depth - 6);
+
+    int pIndex = pawn_structure_index(pos);
+    Threads.main()->pawnHistory[pIndex][pos.moved_piece(move)][to_sq(move)] << bonus;
   }
 } // namespace
 
