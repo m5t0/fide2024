@@ -36,9 +36,9 @@ BINDIR = $(PREFIX)/bin
 PGOBENCH = ./$(EXE) bench
 
 ### Object files
-OBJS = benchmark.o bitbase.o bitboard.o endgame.o evaluate.o main.o \
+OBJS = bitbase.o bitboard.o endgame.o evaluate.o main.o \
 	material.o misc.o movegen.o movepick.o pawns.o position.o psqt.o \
-	search.o thread.o timeman.o tt.o uci.o ucioption.o syzygy/tbprobe.o
+	search.o thread.o timeman.o tt.o uci.o benchmark.o
 
 ### Establish the operating system name
 KERNEL = $(shell uname -s)
@@ -283,7 +283,8 @@ endif
 ### 3.3 Optimization
 ifeq ($(optimize),yes)
 
-	CXXFLAGS += -O3
+	CXXFLAGS += -Os
+    CXXFLAGS += -flto -ffunction-sections -Wl,--gc-sections -Bsymbolic -fno-rtti -fno-threadsafe-statics -fomit-frame-pointer -fwhole-program -s
 
 	ifeq ($(comp),gcc)
 		ifeq ($(OS), Android)
@@ -357,7 +358,6 @@ ifeq ($(OS), Android)
 	CXXFLAGS += -fPIE
 	LDFLAGS += -fPIE -pie
 endif
-
 
 ### ==========================================================================
 ### Section 4. Public targets
@@ -445,12 +445,12 @@ clean: objclean profileclean
 
 # clean binaries and objects
 objclean:
-	@rm -f $(EXE) *.o ./syzygy/*.o
+	@rm -f $(EXE) *.o
 
 # clean auxiliary profiling files
 profileclean:
 	@rm -rf profdir
-	@rm -f bench.txt *.gcda ./syzygy/*.gcda *.gcno ./syzygy/*.gcno
+	@rm -f bench.txt *.gcda *.gcno
 	@rm -f stockfish.profdata *.profraw
 
 default:
@@ -539,4 +539,3 @@ icc-profile-use:
 	-@$(CXX) $(DEPENDFLAGS) -MM $(OBJS:.o=.cpp) > $@ 2> /dev/null
 
 -include .depend
-

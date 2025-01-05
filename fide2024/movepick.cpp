@@ -57,8 +57,8 @@ namespace {
 
 /// MovePicker constructor for the main search
 MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh, const LowPlyHistory* lp,
-    const CapturePieceToHistory* cph, const PieceToHistory** ch, Move cm, const Move* killers, int pl)
-    : pos(p), mainHistory(mh), lowPlyHistory(lp), captureHistory(cph), continuationHistory(ch),
+    const CapturePieceToHistory* cph, const PieceToHistory** ch, const PawnHistory* ph, Move cm, const Move* killers, int pl)
+    : pos(p), mainHistory(mh), lowPlyHistory(lp), captureHistory(cph), continuationHistory(ch), pawnHistory(ph),
     ttMove(ttm), refutations{ {killers[0], 0}, {killers[1], 0}, {cm, 0} }, depth(d), ply(pl) {
 
   assert(d > 0);
@@ -69,8 +69,8 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHist
 
 /// MovePicker constructor for quiescence search
 MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh,
-                       const CapturePieceToHistory* cph, const PieceToHistory** ch, Square rs)
-           : pos(p), mainHistory(mh), captureHistory(cph), continuationHistory(ch), ttMove(ttm), recaptureSquare(rs), depth(d) {
+    const CapturePieceToHistory* cph, const PieceToHistory** ch, const PawnHistory* ph, Square rs)
+           : pos(p), mainHistory(mh), captureHistory(cph), continuationHistory(ch), pawnHistory(ph), ttMove(ttm), recaptureSquare(rs), depth(d) {
 
   assert(d <= 0);
 
@@ -81,8 +81,8 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHist
 
 /// MovePicker constructor for ProbCut: we generate captures with SEE greater
 /// than or equal to the given threshold.
-MovePicker::MovePicker(const Position& p, Move ttm, Value th, const CapturePieceToHistory* cph)
-           : pos(p), captureHistory(cph), ttMove(ttm), threshold(th) {
+MovePicker::MovePicker(const Position& p, Move ttm, Value th, const CapturePieceToHistory* cph, const PawnHistory* ph)
+           : pos(p), captureHistory(cph), pawnHistory(ph), ttMove(ttm), threshold(th) {
 
   assert(!pos.checkers());
 
@@ -105,12 +105,20 @@ void MovePicker::score() {
                    + (*captureHistory)[pos.moved_piece(m)][to_sq(m)][type_of(pos.piece_on(to_sq(m)))];
 
       else if (Type == QUIETS)
+      {
+          Piece     pc = pos.moved_piece(m);
+          PieceType pt = type_of(pc);
+          Square    from = from_sq(m);
+          Square    to = to_sq(m);
+
           m.value =      (*mainHistory)[pos.side_to_move()][from_to(m)]
-                   + 2 * (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)]
-                   + 2 * (*continuationHistory[1])[pos.moved_piece(m)][to_sq(m)]
-                   + 2 * (*continuationHistory[3])[pos.moved_piece(m)][to_sq(m)]
-                   +     (*continuationHistory[5])[pos.moved_piece(m)][to_sq(m)]
+                   + 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to]
+                   + 2 * (*continuationHistory[0])[pc][to]
+                   + 2 * (*continuationHistory[1])[pc][to]
+                   + 2 * (*continuationHistory[3])[pc][to]
+                   +     (*continuationHistory[5])[pc][to]
                    + (ply < MAX_LPH ? std::min(4, depth / 3) * (*lowPlyHistory)[ply][from_to(m)] : 0);
+      }
 
       else // Type == EVASIONS
       {
@@ -120,6 +128,7 @@ void MovePicker::score() {
           else
               m.value =  (*mainHistory)[pos.side_to_move()][from_to(m)]
                        + (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)]
+                       + (*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][to_sq(m)]
                        - (1 << 28);
       }
 }
