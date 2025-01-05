@@ -150,7 +150,7 @@ enum CastlingRights {
 
 enum Phase {
   PHASE_ENDGAME,
-  PHASE_MIDGAME = 100,
+  PHASE_MIDGAME = 128,
   MG = 0, EG = 1, PHASE_NB = 2
 };
 
