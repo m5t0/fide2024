@@ -74,7 +74,6 @@ public:
   LowPlyHistory lowPlyHistory;
   CapturePieceToHistory captureHistory;
   ContinuationHistory continuationHistory;
-  PawnHistory           pawnHistory;
   Score contempt;
 };
 

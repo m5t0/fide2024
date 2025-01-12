@@ -478,7 +478,7 @@ namespace {
     Move ttMove, move, excludedMove, bestMove;
     Depth extension, newDepth;
     Value bestValue, value, ttValue, eval, maxValue, probcutBeta;
-    bool formerPv, givesCheck, improving, didLMR, priorCapture;
+    bool ttPv, formerPv, givesCheck, improving, didLMR, priorCapture;
     bool captureOrPromotion, doFullDepthSearch, moveCountPruning,
          ttCapture, singularQuietLMR;
     Piece movedPiece;
@@ -547,10 +547,10 @@ namespace {
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove =  rootNode ? Threads.main()->rootMoves[Threads.main()->pvIdx].pv[0]
             : ss->ttHit    ? tte->move() : MOVE_NONE;
-    ss->ttPv = PvNode || (ss->ttHit && tte->is_pv());
-    formerPv = ss->ttPv && !PvNode;
+    ttPv = PvNode || (ss->ttHit && tte->is_pv());
+    formerPv = ttPv && !PvNode;
 
-    if (ss->ttPv
+    if (ttPv
         && depth > 12
         && ss->ply - 1 < MAX_LPH
         && !priorCapture
@@ -632,7 +632,7 @@ namespace {
         else
             ss->staticEval = eval = -(ss - 1)->staticEval + 2 * Tempo;
 
-        tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
+        tte->save(posKey, VALUE_NONE, ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
     }
 
     // Step 7. Razoring (~1 Elo)
@@ -657,7 +657,7 @@ namespace {
         && (ss - 1)->statScore < 23824
         &&  eval >= beta
         &&  eval >= ss->staticEval
-        && ss->staticEval >= beta - 33 * depth - 33 * improving + 112 * ss->ttPv + 311
+        && ss->staticEval >= beta - 33 * depth - 33 * improving + 112 * ttPv + 311
         && !excludedMove
         &&  pos.non_pawn_material(us)
         && (ss->ply >= Threads.main()->nmpMinPly || us != Threads.main()->nmpColor))
@@ -723,7 +723,7 @@ namespace {
             return probcutBeta;
 
         assert(probcutBeta < VALUE_INFINITE);
-        MovePicker mp(pos, ttMove, probcutBeta - ss->staticEval, &captureHistory, &Threads.main()->pawnHistory);
+        MovePicker mp(pos, ttMove, probcutBeta - ss->staticEval, &captureHistory);
         int probCutCount = 0;
 
         while ((move = mp.next_move()) != MOVE_NONE
@@ -756,7 +756,7 @@ namespace {
                     if (!(ss->ttHit
                         && tte->depth() >= depth - 3
                         && ttValue != VALUE_NONE))
-                        tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv,
+                        tte->save(posKey, value_to_tt(value, ss->ply), ttPv,
                             BOUND_LOWER,
                             depth - 3, move, ss->staticEval);
                     return value;
@@ -786,14 +786,13 @@ moves_loop: // When in check, search starts from here
                                       &Threads.main()->lowPlyHistory,
                                       &captureHistory,
                                       contHist,
-                                      &Threads.main()->pawnHistory,
                                       countermove,
                                       ss->killers,
                                       ss->ply);
 
     value = bestValue;
     singularQuietLMR = moveCountPruning = false;
-    ss->ttPv = excludedMove ? ss->ttPv : PvNode || (ss->ttHit && tte->is_pv());
+    ttPv = excludedMove ? ttPv : PvNode || (ss->ttHit && tte->is_pv());
     ttCapture = ttMove && pos.capture_or_promotion(ttMove);
 
     // Step 12. Loop through all pseudo-legal moves until no moves remain
@@ -1008,7 +1007,7 @@ moves_loop: // When in check, search starts from here
               r--;
 
           // Decrease reduction if position is or has been on the PV (~10 Elo)
-          if (ss->ttPv)
+          if (ttPv)
               r -= 2;
 
           if (moveCountPruning && !formerPv)
@@ -1041,7 +1040,7 @@ moves_loop: // When in check, search starts from here
               // hence break make_move(). (~2 Elo)
               else if (    type_of(move) == NORMAL
                        && !pos.see_ge(reverse_move(move)))
-                  r -= 2 + ss->ttPv - (type_of(movedPiece) == PAWN);
+                  r -= 2 + ttPv - (type_of(movedPiece) == PAWN);
 
               ss->statScore =  Threads.main()->mainHistory[us][from_to(move)]
                              + (*contHist[0])[movedPiece][to_sq(move)]
@@ -1222,16 +1221,17 @@ moves_loop: // When in check, search starts from here
     else if (bestMove)
         update_all_stats(pos, ss, bestMove, bestValue, beta, prevSq,
                          quietsSearched, quietCount, capturesSearched, captureCount, depth);
+
+    // Bonus for prior countermove that caused the fail low
+    else if (   (depth >= 3 || PvNode)
+             && !priorCapture)
+        update_continuation_histories(ss-1, pos.piece_on(prevSq), prevSq, stat_bonus(depth));
+
     if (PvNode)
         bestValue = std::min(bestValue, maxValue);
 
-    // If no good move is found and the previous position was ttPv, then the previous
-    // opponent move is probably good and the new position is added to the search tree. (~7 Elo)
-    if (bestValue <= alpha)
-        ss->ttPv = ss->ttPv || ((ss - 1)->ttPv && depth > 3);
-
     if (!excludedMove && !(rootNode && Threads.main()->pvIdx))
-        tte->save(posKey, value_to_tt(bestValue, ss->ply), ss->ttPv,
+        tte->save(posKey, value_to_tt(bestValue, ss->ply), ttPv,
                   bestValue >= beta ? BOUND_LOWER :
                   PvNode && bestMove ? BOUND_EXACT : BOUND_UPPER,
                   depth, bestMove, ss->staticEval);
@@ -1353,7 +1353,6 @@ moves_loop: // When in check, search starts from here
     MovePicker mp(pos, ttMove, depth, &Threads.main()->mainHistory,
                                       &Threads.main()->captureHistory,
                                       contHist,
-                                      &Threads.main()->pawnHistory,
                                       to_sq((ss-1)->currentMove));
 
     // Loop through the moves until no moves remain or a beta cutoff occurs
@@ -1587,9 +1586,6 @@ moves_loop: // When in check, search starts from here
 
     if (depth > 11 && ss->ply < MAX_LPH)
         Threads.main()->lowPlyHistory[ss->ply][from_to(move)] << stat_bonus(depth - 6);
-
-    int pIndex = pawn_structure_index(pos);
-    Threads.main()->pawnHistory[pIndex][pos.moved_piece(move)][to_sq(move)] << bonus;
   }
 } // namespace
 

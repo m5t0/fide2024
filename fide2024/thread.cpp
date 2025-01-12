@@ -69,7 +69,6 @@ void Thread::clear() {
   mainHistory.fill(0);
   lowPlyHistory.fill(0);
   captureHistory.fill(0);
-  pawnHistory.fill(-1188);
 
   for (auto& to : continuationHistory)
     for (auto& h : to)
