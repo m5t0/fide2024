@@ -750,7 +750,7 @@ namespace {
 
                     ss->currentMove = move;
                     ss->continuationHistory = &Threads.main()->continuationHistory[pos.moved_piece(move)]
-                                                                                  [to_sq(move)];
+                        [to_sq(move)];
 
                     pos.do_move(move, st);
 
@@ -788,7 +788,7 @@ namespace {
 
     moves_loop: // When in check, search starts from here
 
-        const PieceToHistory* contHist[] = { (ss - 1)->continuationHistory, (ss - 2)->continuationHistory,
+        ContinuationHashMap* contHist[] = { (ss - 1)->continuationHistory, (ss - 2)->continuationHistory,
                                               nullptr                   , (ss - 4)->continuationHistory,
                                               nullptr                   , (ss - 6)->continuationHistory };
 
@@ -797,7 +797,7 @@ namespace {
         MovePicker mp(pos, ttMove, depth, &Threads.main()->mainHistory,
             &Threads.main()->lowPlyHistory,
             &captureHistory,
-            contHist,
+            *contHist,
             &Threads.main()->pawnHistory,
             countermove,
             ss->killers,
@@ -861,8 +861,8 @@ namespace {
                 {
                     // Countermoves based pruning (~20 Elo)
                     if (lmrDepth < 4 + ((ss - 1)->statScore > 0 || (ss - 1)->moveCount == 1)
-                        && (*contHist[0])[movedPiece][to_sq(move)] < CounterMovePruneThreshold
-                        && (*contHist[1])[movedPiece][to_sq(move)] < CounterMovePruneThreshold)
+                        && get_cont_value(contHist[0], movedPiece, to_sq(move)) < CounterMovePruneThreshold
+                        && get_cont_value(contHist[1], movedPiece, to_sq(move)) < CounterMovePruneThreshold)
                         continue;
 
                     //int history =
@@ -882,11 +882,11 @@ namespace {
                     if (lmrDepth < 6
                         && !ss->inCheck
                         && ss->staticEval + 284 + 188 * lmrDepth <= alpha
-                        && (*contHist[0])[movedPiece][to_sq(move)]
-                        + (*contHist[0])[movedPiece][to_sq(move)]
-                        + (*contHist[1])[movedPiece][to_sq(move)]
-                        + (*contHist[3])[movedPiece][to_sq(move)]
-                        + (*contHist[5])[movedPiece][to_sq(move)] / 2 < 28388)
+                        && get_cont_value(contHist[0], movedPiece, to_sq(move))
+                        + get_cont_value(contHist[0], movedPiece, to_sq(move))
+                        + get_cont_value(contHist[1], movedPiece, to_sq(move))
+                        + get_cont_value(contHist[3], movedPiece, to_sq(move))
+                        + get_cont_value(contHist[5], movedPiece, to_sq(move)) / 2 < 28388)
                         continue;
 
                     //lmrDepth = std::max(lmrDepth, 0);
@@ -1005,7 +1005,7 @@ namespace {
             // Update the current move (this must be done after singular extension search)
             ss->currentMove = move;
             ss->continuationHistory = &Threads.main()->continuationHistory[movedPiece]
-                                                                          [to_sq(move)];
+                [to_sq(move)];
 
             // Step 15. Make the move
             pos.do_move(move, st, givesCheck);
@@ -1071,9 +1071,9 @@ namespace {
                         r -= 2 + ss->ttPv - (type_of(movedPiece) == PAWN);
 
                     ss->statScore = Threads.main()->mainHistory[us][from_to(move)]
-                        + (*contHist[0])[movedPiece][to_sq(move)]
-                        + (*contHist[1])[movedPiece][to_sq(move)]
-                        + (*contHist[3])[movedPiece][to_sq(move)]
+                        + get_cont_value(contHist[0], movedPiece, to_sq(move))
+                        + get_cont_value(contHist[1], movedPiece, to_sq(move))
+                        + get_cont_value(contHist[3], movedPiece, to_sq(move))
                         - 4926;
 
                     // Decrease/increase reduction by comparing opponent's stat score (~10 Elo)
@@ -1394,7 +1394,7 @@ namespace {
             futilityBase = bestValue + 141;
         }
 
-        const PieceToHistory* contHist[] = { (ss - 1)->continuationHistory, (ss - 2)->continuationHistory,
+        ContinuationHashMap* contHist[] = { (ss - 1)->continuationHistory, (ss - 2)->continuationHistory,
                                               nullptr                   , (ss - 4)->continuationHistory,
                                               nullptr                   , (ss - 6)->continuationHistory };
 
@@ -1404,7 +1404,7 @@ namespace {
         // will be generated.
         MovePicker mp(pos, ttMove, depth, &Threads.main()->mainHistory,
             &Threads.main()->captureHistory,
-            contHist,
+            *contHist,
             &Threads.main()->pawnHistory,
             to_sq((ss - 1)->currentMove));
 
@@ -1456,7 +1456,7 @@ namespace {
 
             ss->currentMove = move;
             ss->continuationHistory = &Threads.main()->continuationHistory[pos.moved_piece(move)]
-                                                                          [to_sq(move)];
+                [to_sq(move)];
 
             // Make and search the move
             pos.do_move(move, st, givesCheck);
@@ -1603,13 +1603,12 @@ namespace {
     // by moves at ply -1, -2, -4, and -6 with current move.
 
     void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
-
         for (int i : {1, 2, 4, 6})
         {
             if (ss->inCheck && i > 2)
                 break;
             if (is_ok((ss - i)->currentMove))
-                (*(ss - i)->continuationHistory)[pc][to] << bonus;
+                get_cont_value((ss - i)->continuationHistory, pc, to) << bonus;
         }
     }
 
