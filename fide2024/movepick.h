@@ -24,12 +24,10 @@
 #include <array>
 #include <limits>
 #include <type_traits>
-#include <unordered_map>
 
 #include "movegen.h"
 #include "position.h"
 #include "types.h"
-#include "misc.h"
 
 constexpr int PAWN_HISTORY_SIZE = 128;    // has to be a power of 2
 constexpr int CORRECTION_HISTORY_SIZE = 16384;  // has to be a power of 2
@@ -58,22 +56,22 @@ inline int pawn_structure_index(const Position& pos) {
 template<typename T, int D>
 class StatsEntry {
 
-    T entry;
+  T entry;
 
 public:
-    void operator=(const T& v) { entry = v; }
-    T* operator&() { return &entry; }
-    T* operator->() { return &entry; }
-    operator const T& () const { return entry; }
+  void operator=(const T& v) { entry = v; }
+  T* operator&() { return &entry; }
+  T* operator->() { return &entry; }
+  operator const T&() const { return entry; }
 
-    void operator<<(int bonus) {
-        assert(abs(bonus) <= D); // Ensure range is [-D, D]
-        static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
+  void operator<<(int bonus) {
+    assert(abs(bonus) <= D); // Ensure range is [-D, D]
+    static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
 
-        entry += bonus - entry * abs(bonus) / D;
+    entry += bonus - entry * abs(bonus) / D;
 
-        assert(abs(entry) <= D);
-    }
+    assert(abs(entry) <= D);
+  }
 };
 
 /// Stats is a generic N-dimensional array used to store various statistics.
@@ -84,17 +82,17 @@ public:
 template <typename T, int D, int Size, int... Sizes>
 struct Stats : public std::array<Stats<T, D, Sizes...>, Size>
 {
-    typedef Stats<T, D, Size, Sizes...> stats;
+  typedef Stats<T, D, Size, Sizes...> stats;
 
-    void fill(const T& v) {
+  void fill(const T& v) {
 
-        // For standard-layout 'this' points to first struct member
-        assert(std::is_standard_layout<stats>::value);
+    // For standard-layout 'this' points to first struct member
+    assert(std::is_standard_layout<stats>::value);
 
-        typedef StatsEntry<T, D> entry;
-        entry* p = reinterpret_cast<entry*>(this);
-        std::fill(p, p + sizeof(*this) / sizeof(entry), v);
-    }
+    typedef StatsEntry<T, D> entry;
+    entry* p = reinterpret_cast<entry*>(this);
+    std::fill(p, p + sizeof(*this) / sizeof(entry), v);
+  }
 };
 
 template <typename T, int D, int Size>
@@ -108,7 +106,7 @@ enum StatsType { NoCaptures, Captures };
 /// unsuccessful during the current search, and is used for reduction and move
 /// ordering decisions. It uses 2 tables (one for each color) indexed by
 /// the move's from and to squares, see www.chessprogramming.org/Butterfly_Boards
-typedef Stats<int16_t, 10692, COLOR_NB, int(SQUARE_NB)* int(SQUARE_NB)> ButterflyHistory;
+typedef Stats<int16_t, 10692, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)> ButterflyHistory;
 
 /// At higher depths LowPlyHistory records successful quiet moves near the root and quiet
 /// moves which are/were in the PV (ttPv)
@@ -129,17 +127,7 @@ typedef Stats<int16_t, 29952, PIECE_NB, SQUARE_NB> PieceToHistory;
 /// ContinuationHistory is the combined history of a given pair of moves, usually
 /// the current one given a previous one. The nested history table is based on
 /// PieceToHistory instead of ButterflyBoards.
-//typedef Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB> ContinuationHistory;
-
-struct ContinuationEntry
-{
-    std::int16_t key;
-    StatsEntry<std::int16_t, 29952> value;
-};
-
-constexpr int ContinuationHistorySize = PIECE_NB * SQUARE_NB / 4;
-typedef HashTable<ContinuationEntry, ContinuationHistorySize> ContinuationHashMap;
-typedef ContinuationHashMap ContinuationHistory[PIECE_NB][SQUARE_NB];
+typedef Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB> ContinuationHistory;
 
 // PawnHistory is addressed by the pawn structure and a move's [piece][to]
 using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
@@ -147,18 +135,6 @@ using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>
 // CorrectionHistory is addressed by color and pawn structure
 using CorrectionHistory =
 Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
-
-inline StatsEntry<std::int16_t, 29952>& get_cont_value(ContinuationHashMap* contHist, std::int8_t pc, std::int8_t sq) {
-    std::int16_t k = (static_cast<std::int16_t>(pc) << 8) + sq;
-    int h = static_cast<int>(std::hash<std::int16_t>()(k) & (ContinuationHistorySize - 1));
-    if (((*contHist)[h]->key & 1) == 0 || ((*contHist)[h]->key >> 1) != k) {
-        (*contHist)[h]->key = (k << 1) + 1;
-        if (pc == NO_PIECE && sq == 0) (*contHist)[h]->value = -1;
-        else (*contHist)[h]->value = 0;
-    }
-
-    return (*contHist)[h]->value;
-}
 
 /// MovePicker class is used to pick one pseudo legal move at a time from the
 /// current position. The most important method is next_move(), which returns a
@@ -168,47 +144,47 @@ inline StatsEntry<std::int16_t, 29952>& get_cont_value(ContinuationHashMap* cont
 /// to get a cut-off first.
 class MovePicker {
 
-    enum PickType { Next, Best };
+  enum PickType { Next, Best };
 
 public:
-    MovePicker(const MovePicker&) = delete;
-    MovePicker& operator=(const MovePicker&) = delete;
-    MovePicker(const Position&, Move, Value, const CapturePieceToHistory*, const PawnHistory* ph);
-    MovePicker(const Position&, Move, Depth, const ButterflyHistory*,
-        const CapturePieceToHistory*,
-        ContinuationHashMap*,
-        const PawnHistory* ph,
-        Square);
-    MovePicker(const Position&, Move, Depth, const ButterflyHistory*,
-        const LowPlyHistory*,
-        const CapturePieceToHistory*,
-        ContinuationHashMap*,
-        const PawnHistory* ph,
-        Move,
-        const Move*,
-        int);
-    Move next_move(bool skipQuiets = false);
+  MovePicker(const MovePicker&) = delete;
+  MovePicker& operator=(const MovePicker&) = delete;
+  MovePicker(const Position&, Move, Value, const CapturePieceToHistory*, const PawnHistory* ph);
+  MovePicker(const Position&, Move, Depth, const ButterflyHistory*,
+                                           const CapturePieceToHistory*,
+                                           const PieceToHistory**,
+                                           const PawnHistory* ph,
+                                           Square);
+  MovePicker(const Position&, Move, Depth, const ButterflyHistory*,
+                                           const LowPlyHistory*,
+                                           const CapturePieceToHistory*,
+                                           const PieceToHistory**,
+                                           const PawnHistory* ph,
+                                           Move,
+                                           const Move*,
+                                           int);
+  Move next_move(bool skipQuiets = false);
 
 private:
-    template<PickType T, typename Pred> Move select(Pred);
-    template<GenType> void score();
-    ExtMove* begin() { return cur; }
-    ExtMove* end() { return endMoves; }
+  template<PickType T, typename Pred> Move select(Pred);
+  template<GenType> void score();
+  ExtMove* begin() { return cur; }
+  ExtMove* end() { return endMoves; }
 
-    const Position& pos;
-    const ButterflyHistory* mainHistory;
-    const LowPlyHistory* lowPlyHistory;
-    const CapturePieceToHistory* captureHistory;
-    ContinuationHashMap* continuationHistory;
-    const PawnHistory* pawnHistory;
-    Move ttMove;
-    ExtMove refutations[3], * cur, * endMoves, * endBadCaptures;
-    int stage;
-    Square recaptureSquare;
-    Value threshold;
-    Depth depth;
-    int ply;
-    ExtMove moves[MAX_MOVES];
+  const Position& pos;
+  const ButterflyHistory* mainHistory;
+  const LowPlyHistory* lowPlyHistory;
+  const CapturePieceToHistory* captureHistory;
+  const PieceToHistory** continuationHistory;
+  const PawnHistory* pawnHistory;
+  Move ttMove;
+  ExtMove refutations[3], *cur, *endMoves, *endBadCaptures;
+  int stage;
+  Square recaptureSquare;
+  Value threshold;
+  Depth depth;
+  int ply;
+  ExtMove moves[MAX_MOVES];
 };
 
 #endif // #ifndef MOVEPICK_H_INCLUDED
