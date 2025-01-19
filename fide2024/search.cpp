@@ -1638,7 +1638,7 @@ namespace {
         }
 
         if (depth > 11 && ss->ply < MAX_LPH)
-            Threads.main()->lowPlyHistory[ss->ply][from_to(move)] << stat_bonus(depth - 6);
+            Threads.main()->lowPlyHistory[ss->ply][from_to(move)] << stat_bonus(depth - 5);
 
         int pIndex = pawn_structure_index(pos);
         Threads.main()->pawnHistory[pIndex][pos.moved_piece(move)][to_sq(move)] << bonus;
