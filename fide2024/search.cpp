@@ -579,7 +579,7 @@ namespace {
                         update_quiet_stats(pos, ss, ttMove, stat_bonus(depth), depth);
 
                     // Extra penalty for early quiet moves of the previous ply
-                    if ((ss - 1)->moveCount <= 2 && !priorCapture)
+                    if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
                         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -stat_bonus(depth + 1));
                 }
                 // Penalty for a quiet ttMove that fails low
@@ -750,7 +750,7 @@ namespace {
 
                     ss->currentMove = move;
                     ss->continuationHistory = &Threads.main()->continuationHistory[pos.moved_piece(move)]
-                                                                                  [to_sq(move)];
+                        [to_sq(move)];
 
                     pos.do_move(move, st);
 
@@ -1005,7 +1005,7 @@ namespace {
             // Update the current move (this must be done after singular extension search)
             ss->currentMove = move;
             ss->continuationHistory = &Threads.main()->continuationHistory[movedPiece]
-                                                                          [to_sq(move)];
+                [to_sq(move)];
 
             // Step 15. Make the move
             pos.do_move(move, st, givesCheck);
@@ -1456,7 +1456,7 @@ namespace {
 
             ss->currentMove = move;
             ss->continuationHistory = &Threads.main()->continuationHistory[pos.moved_piece(move)]
-                                                                          [to_sq(move)];
+                [to_sq(move)];
 
             // Make and search the move
             pos.do_move(move, st, givesCheck);
