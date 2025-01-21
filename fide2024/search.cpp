@@ -71,6 +71,14 @@ namespace {
         return (3 + depth * depth) / (2 - improving);
     }
 
+    // Add correctionHistory value to raw staticEval and guarantee evaluation
+    // does not hit the tablebase range.
+    Value to_corrected_static_eval(Value v, const Thread* th, const Position& pos) {
+        auto cv = th->correctionHistory[pos.side_to_move()][pawn_structure_index<Correction>(pos)];
+        v += 66 * cv / 512;
+        return Utility::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
+    }
+
     // History and stats update bonus, based on depth
     int stat_bonus(Depth d) {
         return d > 15 ? 27 : 17 * d * d + 133 * d - 134;
@@ -398,7 +406,7 @@ void Thread::search() {
             && !Threads.main()->stopOnPonderhit)
         {
             double fallingEval = (296 + 6 * (Threads.main()->bestPreviousScore - bestValue)
-                + 6 * (Threads.main()->iterValue[iterIdx] - bestValue)) / 725.0;
+                                      + 6 * (Threads.main()->iterValue[iterIdx] - bestValue)) / 725.0;
             fallingEval = Utility::clamp(fallingEval, 0.5, 1.5);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
@@ -601,21 +609,25 @@ namespace {
         CapturePieceToHistory& captureHistory = Threads.main()->captureHistory;
 
         // Step 6. Static evaluation of the position
+        Value unadjustedStaticEval = VALUE_NONE;
         if (ss->inCheck)
         {
             ss->staticEval = eval = VALUE_NONE;
             improving = false;
             goto moves_loop;
         }
+        else if (excludedMove)
+        {
+            unadjustedStaticEval = eval = ss->staticEval;
+        }
         else if (ss->ttHit)
         {
             // Never assume anything about values stored in TT
-            ss->staticEval = eval = tte->eval();
-            if (eval == VALUE_NONE)
-                ss->staticEval = eval = evaluate(pos);
-
-            if (eval == VALUE_DRAW)
-                eval = value_draw(Threads.main());
+            unadjustedStaticEval = tte->eval();
+            if (unadjustedStaticEval == VALUE_NONE)
+                unadjustedStaticEval = evaluate(pos);
+            
+            ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, Threads.main(), pos);
 
             // Can ttValue be used as a better position evaluation?
             if (ttValue != VALUE_NONE
@@ -624,17 +636,13 @@ namespace {
         }
         else
         {
-            if ((ss - 1)->currentMove != MOVE_NULL)
-            {
-                //int bonus = -(ss - 1)->statScore / 512;
+            unadjustedStaticEval =
+                (ss - 1)->currentMove != MOVE_NULL ? evaluate(pos)
+                : -(ss - 1)->staticEval + 2 * Tempo;
 
-                //ss->staticEval = eval = evaluate(pos) + bonus;
-                ss->staticEval = eval = evaluate(pos);
-            }
-            else
-                ss->staticEval = eval = -(ss - 1)->staticEval + 2 * Tempo;
+            ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, Threads.main(), pos);
 
-            tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
+            tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, unadjustedStaticEval);
         }
 
         //// Use static evaluation difference to improve quiet move ordering (~9 Elo)
@@ -770,7 +778,7 @@ namespace {
                             && ttValue != VALUE_NONE))
                             tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv,
                                 BOUND_LOWER,
-                                depth - 3, move, ss->staticEval);
+                                depth - 3, move, unadjustedStaticEval);
                         return value;
                     }
                 }
@@ -1286,7 +1294,17 @@ namespace {
             tte->save(posKey, value_to_tt(bestValue, ss->ply), ss->ttPv,
                 bestValue >= beta ? BOUND_LOWER :
                 PvNode && bestMove ? BOUND_EXACT : BOUND_UPPER,
-                depth, bestMove, ss->staticEval);
+                depth, bestMove, unadjustedStaticEval);
+
+        // Adjust correction history
+        if (!ss->inCheck && (!bestMove || !pos.capture(bestMove))
+            && !(bestValue >= beta && bestValue <= ss->staticEval)
+            && !(!bestMove && bestValue >= ss->staticEval))
+        {
+            auto bonus = Utility::clamp(int(bestValue - ss->staticEval) * depth / 8,
+                -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+            Threads.main()->correctionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
+        }
 
         assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
@@ -1355,6 +1373,7 @@ namespace {
             return ttValue;
 
         // Evaluate the position statically
+        Value unadjustedStaticEval = VALUE_NONE;
         if (ss->inCheck)
         {
             ss->staticEval = VALUE_NONE;
@@ -1364,9 +1383,11 @@ namespace {
         {
             if (ss->ttHit)
             {
-                // Never assume anything about values stored in TT
-                if ((ss->staticEval = bestValue = tte->eval()) == VALUE_NONE)
-                    ss->staticEval = bestValue = evaluate(pos);
+                unadjustedStaticEval = tte->eval();
+                if (unadjustedStaticEval == VALUE_NONE)
+                    unadjustedStaticEval = evaluate(pos);
+
+                ss->staticEval = bestValue = to_corrected_static_eval(unadjustedStaticEval, Threads.main(), pos);
 
                 // Can ttValue be used as a better position evaluation?
                 if (ttValue != VALUE_NONE
@@ -1374,16 +1395,19 @@ namespace {
                     bestValue = ttValue;
             }
             else
-                ss->staticEval = bestValue =
+            {
+                unadjustedStaticEval =
                 (ss - 1)->currentMove != MOVE_NULL ? evaluate(pos)
                 : -(ss - 1)->staticEval + 2 * Tempo;
+                ss->staticEval = bestValue = to_corrected_static_eval(unadjustedStaticEval, Threads.main(), pos);
+            }
 
             // Stand pat. Return immediately if static value is at least beta
             if (bestValue >= beta)
             {
                 if (!ss->ttHit)
                     tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER,
-                        DEPTH_NONE, MOVE_NONE, ss->staticEval);
+                        DEPTH_NONE, MOVE_NONE, unadjustedStaticEval);
 
                 return bestValue;
             }
@@ -1493,7 +1517,7 @@ namespace {
         tte->save(posKey, value_to_tt(bestValue, ss->ply), pvHit,
             bestValue >= beta ? BOUND_LOWER :
             PvNode && bestValue > oldAlpha ? BOUND_EXACT : BOUND_UPPER,
-            ttDepth, bestMove, ss->staticEval);
+            ttDepth, bestMove, unadjustedStaticEval);
 
         assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
