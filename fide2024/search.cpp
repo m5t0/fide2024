@@ -1301,7 +1301,7 @@ namespace {
             && !(bestValue >= beta && bestValue <= ss->staticEval)
             && !(!bestMove && bestValue >= ss->staticEval))
         {
-            auto bonus = Utility::clamp(int(bestValue - ss->staticEval) * depth / 8,
+            auto bonus = Utility::clamp(int(bestValue - unadjustedStaticEval) * depth / 8,
                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
             Threads.main()->correctionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
         }
