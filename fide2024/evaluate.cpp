@@ -112,6 +112,13 @@ namespace {
       S(110,182), S(114,182), S(114,192), S(116,219) }
   };
 
+  // BishopPawns[distance from edge] contains a file-dependent penalty for pawns on
+  // squares of the same color as our bishop.
+  constexpr Score BishopPawns[int(FILE_NB) / 2] = {
+    S(3, 8), S(3, 9), S(2, 8), S(3, 8)
+  };
+
+
   // KingProtector[knight/bishop] contains penalty for each distance unit to own king
   constexpr Score KingProtector[] = { S(8, 9), S(6, 9) };
 
@@ -140,9 +147,8 @@ namespace {
   };
 
   // Assorted bonuses and penalties
-  constexpr Score BadOutpost = S(-7, 36);
+  constexpr Score UncontestedOutpost = S(1, 10);
   constexpr Score BishopOnKingRing = S(24, 0);
-  constexpr Score BishopPawns = S(3, 7);
   constexpr Score BishopXRayPawns = S(4, 5);
   constexpr Score CorneredBishop = S(50, 50);
   constexpr Score FlankAttacks = S(8, 0);
@@ -321,7 +327,7 @@ namespace {
                 && bb & s & ~CenterFiles // on a side outpost
                 && !(b & targets)        // no relevant attacks
                 && (!more_than_one(targets & (s & QueenSide ? QueenSide : KingSide))))
-                score += BadOutpost;
+                score += UncontestedOutpost * popcount(pos.pieces(PAWN) & (s & QueenSide ? QueenSide : KingSide));
             else if (bb & s)
                 score += Outpost[Pt == BISHOP];
 
@@ -342,7 +348,7 @@ namespace {
                 // when the bishop is outside the pawn chain.
                 Bitboard blocked = pos.pieces(Us, PAWN) & shift<Down>(pos.pieces());
 
-                score -= BishopPawns * pos.pawns_on_same_color_squares(Us, s)
+                score -= BishopPawns[edge_distance(file_of(s))]* pos.pawns_on_same_color_squares(Us, s)
                                      * (!(attackedBy[Us][PAWN] & s) + popcount(blocked & CenterFiles));
 
                 // Penalty for all enemy pawns x-rayed
@@ -745,7 +751,7 @@ namespace {
   Value Evaluation<T>::winnable(Score score) const {
 
       int outflanking = distance<File>(pos.square<KING>(WHITE), pos.square<KING>(BLACK))
-                      - distance<Rank>(pos.square<KING>(WHITE), pos.square<KING>(BLACK));
+                      + int(rank_of(pos.square<KING>(WHITE)) - rank_of(pos.square<KING>(BLACK)));
 
       bool pawnsOnBothFlanks = (pos.pieces(PAWN) & QueenSide)
                              && (pos.pieces(PAWN) & KingSide);
@@ -803,7 +809,7 @@ namespace {
               sf = 37 + 3 * (pos.count<QUEEN>(WHITE) == 1 ? pos.count<BISHOP>(BLACK) + pos.count<KNIGHT>(BLACK)
                   : pos.count<BISHOP>(WHITE) + pos.count<KNIGHT>(WHITE));
           else
-              sf = std::min(sf, 36 + 7 * pos.count<PAWN>(strongSide));
+              sf = std::min(sf, 36 + 7 * pos.count<PAWN>(strongSide)) - 4 * !pawnsOnBothFlanks;
       }
 
       // Interpolate between the middlegame and (scaled by 'sf') endgame score
