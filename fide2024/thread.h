@@ -75,7 +75,6 @@ public:
   CapturePieceToHistory captureHistory;
   ContinuationHistory continuationHistory;
   PawnHistory           pawnHistory;
-  CorrectionHistory     correctionHistory;
   Score contempt;
 };
 
