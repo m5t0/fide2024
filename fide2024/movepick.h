@@ -29,7 +29,7 @@
 #include "position.h"
 #include "types.h"
 
-constexpr int PAWN_HISTORY_SIZE = 128;    // has to be a power of 2
+constexpr int PAWN_HISTORY_SIZE = 64;    // has to be a power of 2
 constexpr int CORRECTION_HISTORY_SIZE = 16384;  // has to be a power of 2
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
 
@@ -124,10 +124,14 @@ typedef Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB> CapturePieceTo
 /// PieceToHistory is like ButterflyHistory but is addressed by a move's [piece][to]
 typedef Stats<int16_t, 29952, PIECE_NB, SQUARE_NB> PieceToHistory;
 
+inline Piece without_color(Piece p) {
+    return static_cast<Piece>(static_cast<int>(p) & 7);
+}
+
 /// ContinuationHistory is the combined history of a given pair of moves, usually
 /// the current one given a previous one. The nested history table is based on
 /// PieceToHistory instead of ButterflyBoards.
-typedef Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB> ContinuationHistory;
+typedef Stats<PieceToHistory, NOT_USED, PIECE_NB/2, SQUARE_NB> ContinuationHistory;
 
 // PawnHistory is addressed by the pawn structure and a move's [piece][to]
 using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;

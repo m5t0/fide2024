@@ -197,7 +197,7 @@ namespace PSQT {
 
 #ifndef KAGGLE
 extern std::ostream& operator<<(std::ostream& os, const Position& pos);
-#endif // KAGGLE
+#endif // !KAGGLE
 
 inline Color Position::side_to_move() const {
   return sideToMove;

@@ -19,6 +19,7 @@
 */
 
 #include <iostream>
+#include <chrono>
 
 #include "bitboard.h"
 #include "position.h"
@@ -37,10 +38,11 @@ int main(int argc, char* argv[]) {
   std::cout << engine_info() << std::endl;
 #endif // !KAGGLE
 
+  Bitbases::init();
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));
   PSQT::init();
   Bitboards::init();
   Position::init();
-  Bitbases::init();
   Endgames::init();
   Threads.set(OptionValue::Threads);
   Search::clear(); // After threads are up

@@ -201,13 +201,23 @@ void MainThread::search() {
         Time.availableNodes += Limits.inc[us] - Threads.nodes_searched();
 
     bestPreviousScore = rootMoves[0].score;
-
-    sync_cout << "bestmove " << UCI::move(rootMoves[0].pv[0]);
+    UCI::best_move = rootMoves[0].pv[0];
 
     if (rootMoves[0].pv.size() > 1 || rootMoves[0].extract_ponder_from_tt(rootPos))
-        std::cout << " ponder " << UCI::move(rootMoves[0].pv[1]);
+        UCI::ponder_move = rootMoves[0].pv[1];
+    else
+        UCI::ponder_move = MOVE_NULL;
 
-    std::cout << sync_endl;
+    if (UCI::output_best_move) {
+        sync_cout << "bestmove " << UCI::move(UCI::best_move);
+
+        if (rootMoves[0].pv.size() > 1 || rootMoves[0].extract_ponder_from_tt(rootPos))
+            std::cout << " ponder " << UCI::move(UCI::ponder_move);
+
+        std::cout << sync_endl;
+    }
+    
+    UCI::output_best_move = true;
 }
 
 
@@ -296,7 +306,7 @@ void Thread::search() {
             selDepth = 0;
 
             // Reset aspiration window starting size
-            if (rootDepth >= 4)
+            if (rootDepth >= 4 || Time.maximum() <= 200)
             {
                 Value prev = rootMoves[pvIdx].previousScore;
                 delta = Value(19);
@@ -340,7 +350,10 @@ void Thread::search() {
                     && (bestValue <= alpha || bestValue >= beta)
                     && Time.elapsed() > 3000)
                     sync_cout << UCI::pv(rootPos, rootDepth, alpha, beta) << sync_endl;
-#endif // KAGGLE
+
+                //if (alpha <= bestValue && bestValue <= beta)
+                //    sync_cout << "time:" << Time.elapsed() << ",alpha:" << alpha << ", beta:" << beta << ", bestValue:" << bestValue << sync_endl;
+#endif // !KAGGLE
 
                 // In case of failing low/high increase aspiration window and
                 // re-search, otherwise exit the loop.
@@ -375,7 +388,7 @@ void Thread::search() {
             if (Threads.stop || pvIdx + 1 == multiPV || Time.elapsed() > 3000)
                 sync_cout << UCI::pv(rootPos, rootDepth, alpha, beta) << sync_endl;
 
-#endif // KAGGLE
+#endif // !KAGGLE
         }
 
         if (!Threads.stop)
@@ -413,6 +426,13 @@ void Thread::search() {
 
             double totalTime = rootMoves.size() == 1 ? 0 :
                 Time.optimum() * fallingEval * reduction * bestMoveInstability;
+
+            double minimum_time = std::min(static_cast<double>(OptionValue::MinimumThinkingTime), static_cast<double>(Limits.time[us]) / 2);
+            totalTime = std::max(totalTime, minimum_time);
+
+#ifndef KAGGLE
+            //sync_cout << "totalTime:" << totalTime << sync_endl;
+#endif // !KAGGLE
 
             // Stop the search if we have exceeded the totalTime, at least 1ms search
             if (Time.elapsed() > totalTime)
@@ -749,7 +769,7 @@ namespace {
                     probCutCount++;
 
                     ss->currentMove = move;
-                    ss->continuationHistory = &Threads.main()->continuationHistory[pos.moved_piece(move)]
+                    ss->continuationHistory = &Threads.main()->continuationHistory[without_color(pos.moved_piece(move))]
                         [to_sq(move)];
 
                     pos.do_move(move, st);
@@ -789,8 +809,8 @@ namespace {
     moves_loop: // When in check, search starts from here
 
         const PieceToHistory* contHist[] = { (ss - 1)->continuationHistory, (ss - 2)->continuationHistory,
-                                              nullptr                   , (ss - 4)->continuationHistory,
-                                              nullptr                   , (ss - 6)->continuationHistory };
+                                                 nullptr                           , (ss - 4)->continuationHistory,
+                                                 nullptr                           , (ss - 6)->continuationHistory};
 
         Move countermove = Threads.main()->counterMoves[pos.piece_on(prevSq)][prevSq];
 
@@ -832,7 +852,7 @@ namespace {
                 sync_cout << "info depth " << depth
                 << " currmove " << UCI::move(move)
                 << " currmovenumber " << moveCount + Threads.main()->pvIdx << sync_endl;
-#endif // KAGGLE
+#endif // !KAGGLE
 
             if (PvNode)
                 (ss + 1)->pv = nullptr;
@@ -1004,8 +1024,8 @@ namespace {
 
             // Update the current move (this must be done after singular extension search)
             ss->currentMove = move;
-            ss->continuationHistory = &Threads.main()->continuationHistory[movedPiece]
-                [to_sq(move)];
+            ss->continuationHistory = &Threads.main()->continuationHistory[without_color(movedPiece)]
+                                                                          [to_sq(move)];
 
             // Step 15. Make the move
             pos.do_move(move, st, givesCheck);
@@ -1315,6 +1335,8 @@ namespace {
         bool pvHit, givesCheck;
         int moveCount;
 
+        Color us = pos.side_to_move();
+
         if (PvNode)
         {
             oldAlpha = alpha; // To flag BOUND_EXACT when eval above alpha and no available moves
@@ -1394,9 +1416,9 @@ namespace {
             futilityBase = bestValue + 141;
         }
 
-        const PieceToHistory* contHist[] = { (ss - 1)->continuationHistory, (ss - 2)->continuationHistory,
-                                              nullptr                   , (ss - 4)->continuationHistory,
-                                              nullptr                   , (ss - 6)->continuationHistory };
+        const PieceToHistory* contHist[] = { (ss - 1)->continuationHistory,    (ss - 2)->continuationHistory,
+                                                 nullptr                      ,    (ss - 4)->continuationHistory,
+                                                 nullptr                      ,    (ss - 6)->continuationHistory};
 
         // Initialize a MovePicker object for the current position, and prepare
         // to search the moves. Because the depth is <= 0 here, only captures,
@@ -1455,7 +1477,7 @@ namespace {
             }
 
             ss->currentMove = move;
-            ss->continuationHistory = &Threads.main()->continuationHistory[pos.moved_piece(move)]
+            ss->continuationHistory = &Threads.main()->continuationHistory[without_color(pos.moved_piece(move))]
                 [to_sq(move)];
 
             // Make and search the move
@@ -1673,7 +1695,7 @@ void MainThread::check_time() {
     if (ponder)
         return;
 
-    if ((Limits.use_time_management() && (elapsed > Time.maximum() - 10 || stopOnPonderhit))
+    if ((Limits.use_time_management() && (elapsed > Time.maximum() - 2 || stopOnPonderhit))
         || (Limits.movetime && elapsed >= Limits.movetime)
         || (Limits.nodes && Threads.nodes_searched() >= (uint64_t)Limits.nodes))
         Threads.stop = true;

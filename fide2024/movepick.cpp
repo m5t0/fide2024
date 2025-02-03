@@ -19,6 +19,7 @@
 */
 
 #include <cassert>
+#include <iostream>
 
 #include "movepick.h"
 
@@ -106,12 +107,13 @@ void MovePicker::score() {
 
       else if (Type == QUIETS)
       {
+          Color us = pos.side_to_move();
           Piece     pc = pos.moved_piece(m);
           PieceType pt = type_of(pc);
           Square    from = from_sq(m);
           Square    to = to_sq(m);
 
-          m.value =      (*mainHistory)[pos.side_to_move()][from_to(m)]
+          m.value =      (*mainHistory)[us][from_to(m)]
                    + 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to]
                    + 2 * (*continuationHistory[0])[pc][to]
                    + 2 * (*continuationHistory[1])[pc][to]
@@ -125,11 +127,14 @@ void MovePicker::score() {
           if (pos.capture(m))
               m.value =  PieceValue[MG][pos.piece_on(to_sq(m))]
                        - Value(type_of(pos.moved_piece(m)));
-          else
-              m.value =  (*mainHistory)[pos.side_to_move()][from_to(m)]
+          else {
+              Color us = pos.side_to_move();
+
+              m.value =  (*mainHistory)[us][from_to(m)]
                        + (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)]
                        + (*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][to_sq(m)]
                        - (1 << 28);
+          }
       }
 }
 

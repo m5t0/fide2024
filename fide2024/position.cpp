@@ -77,7 +77,7 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
 
   return os;
 }
-#endif // KAGGLE
+#endif // !KAGGLE
 
 
 // Marcel van Kervinck's cuckoo algorithm for fast detection of "upcoming repetition"

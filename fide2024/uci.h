@@ -38,9 +38,9 @@ namespace OptionValue {
     constexpr bool Ponder = true;
     constexpr int MultiPV = 1;
     // min: 0, max: 5000
-    constexpr int MoveOverhead = 30;
+    constexpr int MoveOverhead = 5;
     // min: 0, max: 5000
-    constexpr int MinimumThinkingTime = 20;
+    constexpr int MinimumThinkingTime = 5;
     // min: 10, max: 1000
     constexpr int SlowMover = 84;
 }
@@ -56,7 +56,14 @@ std::string value(Value v);
 std::string pv(const Position& pos, Depth depth, Value alpha, Value beta);
 std::string wdl(Value v, int ply);
 
-#endif // KAGGLE
+#endif // !KAGGLE
+
+extern Move best_move;
+extern Move ponder_move;
+extern bool output_best_move;
+extern std::vector<std::string> str;
+extern std::string allocated_time, fen, last_move;
+extern bool is_bench;
 
 } // namespace UCI
 
