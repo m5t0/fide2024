@@ -76,6 +76,10 @@ namespace {
         return d > 15 ? 27 : 17 * d * d + 133 * d - 134;
     }
 
+    int stat_malus(Depth d) {
+        return d > 15 ? 27 : 18 * d * d + 133 * d - 134;
+    }
+
     // Add a small random component to draw evaluations to avoid 3fold-blindness
     Value value_draw(Thread* thisThread) {
         return VALUE_DRAW + Value(2 * (thisThread->nodes & 1) - 1);
@@ -598,12 +602,12 @@ namespace {
 
                     // Extra penalty for early quiet moves of the previous ply
                     if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
-                        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -stat_bonus(depth + 1));
+                        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -stat_malus(depth + 1));
                 }
                 // Penalty for a quiet ttMove that fails low
                 else if (!pos.capture_or_promotion(ttMove))
                 {
-                    int penalty = -stat_bonus(depth);
+                    int penalty = -stat_malus(depth);
                     Threads.main()->mainHistory[us][from_to(ttMove)] << penalty;
                     update_continuation_histories(ss, pos.moved_piece(ttMove), to_sq(ttMove), penalty);
                 }
@@ -1138,7 +1142,7 @@ namespace {
                 if (didLMR && !captureOrPromotion)
                 {
                     int bonus = value > alpha ? stat_bonus(newDepth)
-                        : -stat_bonus(newDepth);
+                        : -stat_malus(newDepth);
 
                     if (move == ss->killers[0])
                         bonus += bonus / 4;

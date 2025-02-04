@@ -289,16 +289,20 @@ void UCI::loop(int argc, char* argv[]) {
             is >> skipws >> token;
 
             if (token == "quit" || token == "stop") {
+#ifdef KAGGLE
                 if (token == "stop") {
                     UCI::output_best_move = false;
                 }
+#endif // KAGGLE
                     
                 Threads.stop = true;
                 Threads.main()->wait_for_search_finished();
 
+#ifdef KAGGLE
                 if (token == "stop") {
                     UCI::output_best_move = true;
                 }
+#endif // KAGGLE
             }
 
             // The GUI sends 'ponderhit' to tell us the user has played the expected move.
