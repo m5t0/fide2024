@@ -48,7 +48,7 @@ namespace UCI {
     bool output_best_move = true;
     std::vector<std::string> str;
     std::string allocated_time = "", fen = "", last_move = "";
-    bool is_bench;
+    bool is_bench = false;
 }
 
 #ifndef KAGGLE
@@ -128,17 +128,19 @@ namespace {
 
         Threads.start_thinking(pos, states, limits, ponderMode);
 
-#ifndef KAGGLE
+#ifdef KAGGLE
         if(!ponderMode)
             Threads.main()->wait_for_search_finished();
 
         if (!UCI::is_bench && !ponderMode && UCI::ponder_move != MOVE_NULL) {
-            Position pos;
-            StateInfo si, si2, si3;
-            pos.set(UCI::fen, &si);
+            auto states = StateListPtr(new std::deque<StateInfo>(1));
+            pos.set(UCI::fen, &states->back());
+            StateInfo si2;
             pos.do_move(UCI::best_move, si2);
+            StateInfo si3;
             pos.do_move(UCI::ponder_move, si3);
 
+            //sync_cout << "best_move:" << UCI::move(UCI::best_move) << " ponder_move:" << UCI::move(UCI::ponder_move) << " fen:" << pos.fen() << sync_endl;
             UCI::str.emplace_back("position fen " + pos.fen() + "\n");
             UCI::str.emplace_back("go ponder wtime " + UCI::allocated_time + " btime " + UCI::allocated_time + "\n");
         }
@@ -250,13 +252,14 @@ void UCI::loop(int argc, char* argv[]) {
             std::string t;
             while (t != "last_move") {
                 is >> skipws >> t;
-                fen += " " + t;
+                if(t != "last_move")
+                    fen += " " + t;
             }
             is >> last_move;
 
             if (UCI::ponder_move == MOVE_NULL) {
                 str.emplace_back("position fen " + fen + "\n");
-                str.emplace_back("isready\n");
+                //str.emplace_back("isready\n");
                 str.emplace_back("go wtime " + allocated_time + " btime " + allocated_time + "\n");
             }
             else {
@@ -286,16 +289,39 @@ void UCI::loop(int argc, char* argv[]) {
             is >> skipws >> token;
 
             if (token == "quit" || token == "stop") {
+                if (token == "stop") {
+                    UCI::output_best_move = false;
+                }
+                    
                 Threads.stop = true;
-                UCI::output_best_move = false;
+                Threads.main()->wait_for_search_finished();
+
+                if (token == "stop") {
+                    UCI::output_best_move = true;
+                }
             }
 
             // The GUI sends 'ponderhit' to tell us the user has played the expected move.
             // So 'ponderhit' will be sent if we were told to ponder on the same move the
             // user has played. We should continue searching but switch from pondering to
             // normal search.
-            else if (token == "ponderhit")
+            else if (token == "ponderhit") {
                 Threads.main()->ponder = false; // Switch to normal search
+#ifdef KAGGLE
+                Threads.main()->wait_for_search_finished();
+
+                if (UCI::ponder_move != MOVE_NULL) {
+                    StateInfo si2;
+                    pos.do_move(UCI::best_move, si2);
+                    StateInfo si3;
+                    pos.do_move(UCI::ponder_move, si3);
+
+                    //sync_cout << "best_move:" << UCI::move(UCI::best_move) << " ponder_move:" << UCI::move(UCI::ponder_move) << " fen:" << pos.fen() << sync_endl;
+                    UCI::str.emplace_back("position fen " + pos.fen() + "\n");
+                    UCI::str.emplace_back("go ponder wtime " + UCI::allocated_time + " btime " + UCI::allocated_time + "\n");
+                }
+#endif // KAGGLE
+            }
 
             else if (token == "uci")
                 sync_cout

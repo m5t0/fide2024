@@ -111,9 +111,9 @@ struct ThreadPool {
   uint64_t nodes_searched() const { return accumulate(&Thread::nodes); }
 
   std::atomic_bool stop, increaseDepth;
+  StateListPtr setupStates;
 
 private:
-  StateListPtr setupStates;
   std::unique_ptr<MainThread> main_thread;
 
   uint64_t accumulate(std::atomic<uint64_t> Thread::* member) const {

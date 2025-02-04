@@ -216,8 +216,6 @@ void MainThread::search() {
 
         std::cout << sync_endl;
     }
-    
-    UCI::output_best_move = true;
 }
 
 
