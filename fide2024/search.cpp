@@ -76,10 +76,6 @@ namespace {
         return d > 15 ? 27 : 17 * d * d + 133 * d - 134;
     }
 
-    int stat_malus(Depth d) {
-        return d > 15 ? 27 : 18 * d * d + 133 * d - 134;
-    }
-
     // Add a small random component to draw evaluations to avoid 3fold-blindness
     Value value_draw(Thread* thisThread) {
         return VALUE_DRAW + Value(2 * (thisThread->nodes & 1) - 1);
@@ -378,7 +374,7 @@ void Thread::search() {
                     break;
                 }
 
-                delta += delta / 4 + 5;
+                delta += delta / 3 + 4;
 
                 assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
@@ -602,12 +598,12 @@ namespace {
 
                     // Extra penalty for early quiet moves of the previous ply
                     if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
-                        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -stat_malus(depth + 1));
+                        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -stat_bonus(depth + 1));
                 }
                 // Penalty for a quiet ttMove that fails low
                 else if (!pos.capture_or_promotion(ttMove))
                 {
-                    int penalty = -stat_malus(depth);
+                    int penalty = -stat_bonus(depth);
                     Threads.main()->mainHistory[us][from_to(ttMove)] << penalty;
                     update_continuation_histories(ss, pos.moved_piece(ttMove), to_sq(ttMove), penalty);
                 }
@@ -652,7 +648,7 @@ namespace {
 
                 //ss->staticEval = eval = evaluate(pos) + bonus;
                 ss->staticEval = eval = evaluate(pos);
-            }
+        }
             else
                 ss->staticEval = eval = -(ss - 1)->staticEval + 2 * Tempo;
 
@@ -1137,12 +1133,19 @@ namespace {
             // Step 17. Full depth search when LMR is skipped or fails high
             if (doFullDepthSearch)
             {
+                //// Adjust full-depth search based on LMR results - if the result was
+                //// good enough search deeper, if it was bad enough search shallower.
+                //const bool doDeeperSearch = value > (bestValue + 100 + 2 * newDepth);
+                //const bool doShallowerSearch = value < bestValue + 9;
+
+                //newDepth += doDeeperSearch - doShallowerSearch;
+
                 value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
                 if (didLMR && !captureOrPromotion)
                 {
                     int bonus = value > alpha ? stat_bonus(newDepth)
-                        : -stat_malus(newDepth);
+                        : -stat_bonus(newDepth);
 
                     if (move == ss->killers[0])
                         bonus += bonus / 4;
@@ -1150,6 +1153,12 @@ namespace {
                     update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
                 }
             }
+            //// Step 18. Full-depth search when LMR is skipped
+            //else if (!didLMR)
+            //{
+            //    // Note that if expected reduction is high, we reduce search depth here
+            //    value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (newDepth > 2), !cutNode);
+            //}
 
             // For PV nodes only, do a full PV search on the first move or after a fail
             // high (in the latter case search only if value < beta), otherwise let the
@@ -1271,30 +1280,38 @@ namespace {
         else if (bestMove)
             update_all_stats(pos, ss, bestMove, bestValue, beta, prevSq,
                 quietsSearched, quietCount, capturesSearched, captureCount, depth);
+        // Bonus for prior countermove that caused the fail low
+        else if (!priorCapture && prevSq != SQ_NONE)
+        {
+            int bonusScale = (118 * (depth > 5) + 36 * !allNode + 161 * ((ss - 1)->moveCount > 8)
+                + 133 * (!ss->inCheck && bestValue <= ss->staticEval - 107)
+                + 120 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 84)
+                //+ 81 * ((ss - 1)->isTTMove)
+                + 100 * (ss->cutoffCnt <= 3)
+                + std::min(-(ss - 1)->statScore / 216, 320));
 
-        //// Bonus for prior countermove that caused the fail low
-        //else if ((depth >= 3 || PvNode)
-        //    && !priorCapture)
-        //{
-        //    //int bonus = (122 * (depth > 5) + 39 * !allNode + 165 * ((ss - 1)->moveCount > 8)
-        //    //    + 107 * (!ss->inCheck && bestValue <= ss->staticEval - 98)
-        //    //    + 134 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 91));
-        //    int bonus = 20 * (depth > 5);
+            bonusScale = std::max(bonusScale, 0);
 
-        //    //// Proportional to "how much damage we have to undo"
-        //    //bonus += Utility::clamp(-(ss - 1)->statScore / 100, -94, 304);
+            const int scaledBonus = stat_bonus(depth) * bonusScale;
 
-        //    bonus = std::max(bonus, 0);
+            update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                scaledBonus * 219 / 32768 / 40);
 
-        //    update_continuation_histories(ss-1, pos.piece_on(prevSq), prevSq, stat_bonus(depth));
+            Threads.main()->mainHistory[~us][from_to((ss - 1)->currentMove)]
+                << scaledBonus * 220 / 32768 / 40;
 
-        //    Threads.main()->mainHistory[~us][from_to((ss - 1)->currentMove)]
-        //        << stat_bonus(depth) * bonus / 180;
-
-        //    if (type_of(pos.piece_on(prevSq)) != PAWN && type_of((ss - 1)->currentMove) != PROMOTION)
-        //        Threads.main()->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-        //        << stat_bonus(depth) * bonus / 25;
-        //}
+            if (type_of(pos.piece_on(prevSq)) != PAWN && type_of((ss - 1)->currentMove) != PROMOTION)
+                Threads.main()->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+                << scaledBonus * 203 / 32768 / 40;
+        }
+        else if (priorCapture && prevSq != SQ_NONE)
+        {
+            // bonus for prior countermoves that caused the fail low
+            Piece capturedPiece = pos.captured_piece();
+            assert(capturedPiece != NO_PIECE);
+            Threads.main()->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)]
+                << stat_bonus(depth)/2;
+        }
 
         if (PvNode)
             bestValue = std::min(bestValue, maxValue);
@@ -1399,8 +1416,8 @@ namespace {
             }
             else
                 ss->staticEval = bestValue =
-                (ss - 1)->currentMove != MOVE_NULL ? evaluate(pos)
-                : -(ss - 1)->staticEval + 2 * Tempo;
+                    (ss - 1)->currentMove != MOVE_NULL ? evaluate(pos)
+                    : -(ss - 1)->staticEval + 2 * Tempo;
 
             // Stand pat. Return immediately if static value is at least beta
             if (bestValue >= beta)
