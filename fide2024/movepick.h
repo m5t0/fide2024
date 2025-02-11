@@ -140,10 +140,6 @@ using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>
 using CorrectionHistory =
 Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
 
-// PieceCountHistory is addressed by color and the difference of the count of each piece type excluding pawns.
-// color and count diff of knight, bishop, rook, queen
-using PieceCountHistory = Stats<int16_t, 8192, COLOR_NB, 5, 5, 5, 3>;
-
 /// MovePicker class is used to pick one pseudo legal move at a time from the
 /// current position. The most important method is next_move(), which returns a
 /// new pseudo legal move each time it is called, until there are no moves left,

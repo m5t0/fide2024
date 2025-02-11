@@ -374,7 +374,7 @@ void Thread::search() {
                     break;
                 }
 
-                delta += delta / 3 + 4;
+                delta += delta / 4 + 5;
 
                 assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
@@ -648,7 +648,7 @@ namespace {
 
                 //ss->staticEval = eval = evaluate(pos) + bonus;
                 ss->staticEval = eval = evaluate(pos);
-        }
+            }
             else
                 ss->staticEval = eval = -(ss - 1)->staticEval + 2 * Tempo;
 
@@ -927,7 +927,7 @@ namespace {
                         && !(PvNode && abs(bestValue) < 2)
                         && PieceValue[MG][type_of(movedPiece)] >= PieceValue[MG][type_of(pos.piece_on(to_sq(move)))]
                         && !ss->inCheck
-                        && ss->staticEval + 267 + 391 * lmrDepth
+                        && ss->staticEval + 267 + 392 * lmrDepth
                         + PieceValue[MG][type_of(pos.piece_on(to_sq(move)))] <= alpha)
                         continue;
 
@@ -1280,38 +1280,30 @@ namespace {
         else if (bestMove)
             update_all_stats(pos, ss, bestMove, bestValue, beta, prevSq,
                 quietsSearched, quietCount, capturesSearched, captureCount, depth);
-        // Bonus for prior countermove that caused the fail low
-        else if (!priorCapture && prevSq != SQ_NONE)
-        {
-            int bonusScale = (118 * (depth > 5) + 36 * !allNode + 161 * ((ss - 1)->moveCount > 8)
-                + 133 * (!ss->inCheck && bestValue <= ss->staticEval - 107)
-                + 120 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 84)
-                //+ 81 * ((ss - 1)->isTTMove)
-                + 100 * (ss->cutoffCnt <= 3)
-                + std::min(-(ss - 1)->statScore / 216, 320));
 
-            bonusScale = std::max(bonusScale, 0);
+        //// Bonus for prior countermove that caused the fail low
+        //else if ((depth >= 3 || PvNode)
+        //    && !priorCapture)
+        //{
+        //    //int bonus = (122 * (depth > 5) + 39 * !allNode + 165 * ((ss - 1)->moveCount > 8)
+        //    //    + 107 * (!ss->inCheck && bestValue <= ss->staticEval - 98)
+        //    //    + 134 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 91));
+        //    int bonus = 20 * (depth > 5);
 
-            const int scaledBonus = stat_bonus(depth) * bonusScale;
+        //    //// Proportional to "how much damage we have to undo"
+        //    //bonus += Utility::clamp(-(ss - 1)->statScore / 100, -94, 304);
 
-            update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                scaledBonus * 219 / 32768 / 40);
+        //    bonus = std::max(bonus, 0);
 
-            Threads.main()->mainHistory[~us][from_to((ss - 1)->currentMove)]
-                << scaledBonus * 220 / 32768 / 40;
+        //    update_continuation_histories(ss-1, pos.piece_on(prevSq), prevSq, stat_bonus(depth));
 
-            if (type_of(pos.piece_on(prevSq)) != PAWN && type_of((ss - 1)->currentMove) != PROMOTION)
-                Threads.main()->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-                << scaledBonus * 203 / 32768 / 40;
-        }
-        else if (priorCapture && prevSq != SQ_NONE)
-        {
-            // bonus for prior countermoves that caused the fail low
-            Piece capturedPiece = pos.captured_piece();
-            assert(capturedPiece != NO_PIECE);
-            Threads.main()->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)]
-                << stat_bonus(depth)/2;
-        }
+        //    Threads.main()->mainHistory[~us][from_to((ss - 1)->currentMove)]
+        //        << stat_bonus(depth) * bonus / 180;
+
+        //    if (type_of(pos.piece_on(prevSq)) != PAWN && type_of((ss - 1)->currentMove) != PROMOTION)
+        //        Threads.main()->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+        //        << stat_bonus(depth) * bonus / 25;
+        //}
 
         if (PvNode)
             bestValue = std::min(bestValue, maxValue);
@@ -1416,8 +1408,8 @@ namespace {
             }
             else
                 ss->staticEval = bestValue =
-                    (ss - 1)->currentMove != MOVE_NULL ? evaluate(pos)
-                    : -(ss - 1)->staticEval + 2 * Tempo;
+                (ss - 1)->currentMove != MOVE_NULL ? evaluate(pos)
+                : -(ss - 1)->staticEval + 2 * Tempo;
 
             // Stand pat. Return immediately if static value is at least beta
             if (bestValue >= beta)

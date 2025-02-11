@@ -28,6 +28,7 @@
 #include "tt.h"
 #include "uci.h"
 #include "endgame.h"
+#include "evaluate.h"
 
 namespace PSQT {
   void init();
@@ -46,6 +47,8 @@ int main(int argc, char* argv[]) {
   Endgames::init();
   Threads.set(OptionValue::Threads);
   Search::clear(); // After threads are up
+  Eval::init_NNUE();
+  Eval::verify_NNUE();
 
   UCI::loop(argc, argv);
 
