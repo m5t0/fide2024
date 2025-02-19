@@ -56,15 +56,6 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
-        },
-        {
-            "name": "kaggle-release",
-            "displayName": "Kaggle Release",
-            "inherits": "x64-release",
-            "cacheVariables": {
-              "CMAKE_BUILD_TYPE": "Release",
-              "KAGGLE": "1"
-            }
         }
     ]
 }

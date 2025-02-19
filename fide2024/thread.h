@@ -56,7 +56,7 @@ public:
   void idle_loop();
   void start_searching();
   void wait_for_search_finished();
-  int best_move_count(Move move);
+  int best_move_count(Move move) const;
 
   Pawns::Table pawnsTable;
   Material::Table materialTable;
@@ -71,8 +71,10 @@ public:
   Depth rootDepth, completedDepth;
   CounterMoveHistory counterMoves;
   ButterflyHistory mainHistory;
+  LowPlyHistory lowPlyHistory;
   CapturePieceToHistory captureHistory;
   ContinuationHistory continuationHistory;
+  PawnHistory           pawnHistory;
   Score contempt;
 };
 
@@ -87,7 +89,7 @@ struct MainThread : public Thread {
   void check_time();
 
   double previousTimeReduction;
-  Value previousScore;
+  Value bestPreviousScore;
   Value iterValue[4];
   int callsCnt;
   bool stopOnPonderhit;
@@ -109,9 +111,9 @@ struct ThreadPool {
   uint64_t nodes_searched() const { return accumulate(&Thread::nodes); }
 
   std::atomic_bool stop, increaseDepth;
+  StateListPtr setupStates;
 
 private:
-  StateListPtr setupStates;
   std::unique_ptr<MainThread> main_thread;
 
   uint64_t accumulate(std::atomic<uint64_t> Thread::* member) const {

@@ -29,6 +29,26 @@
 #include "position.h"
 #include "types.h"
 
+constexpr int PAWN_HISTORY_SIZE = 256;    // has to be a power of 2
+constexpr int CORRECTION_HISTORY_SIZE = 16384;  // has to be a power of 2
+constexpr int CORRECTION_HISTORY_LIMIT = 1024;
+
+static_assert((PAWN_HISTORY_SIZE& (PAWN_HISTORY_SIZE - 1)) == 0,
+    "PAWN_HISTORY_SIZE has to be a power of 2");
+
+static_assert((CORRECTION_HISTORY_SIZE& (CORRECTION_HISTORY_SIZE - 1)) == 0,
+    "CORRECTION_HISTORY_SIZE has to be a power of 2");
+
+enum PawnHistoryType {
+    Normal,
+    Correction
+};
+
+template<PawnHistoryType T = Normal>
+inline int pawn_structure_index(const Position& pos) {
+    return pos.pawn_key() & ((T == Normal ? PAWN_HISTORY_SIZE : CORRECTION_HISTORY_SIZE) - 1);
+}
+
 /// StatsEntry stores the stat table value. It is usually a number but could
 /// be a move or even a nested history. We use a class instead of naked value
 /// to directly call history update operator<<() on the entry so to use stats
@@ -88,6 +108,12 @@ enum StatsType { NoCaptures, Captures };
 /// the move's from and to squares, see www.chessprogramming.org/Butterfly_Boards
 typedef Stats<int16_t, 10692, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)> ButterflyHistory;
 
+/// At higher depths LowPlyHistory records successful quiet moves near the root and quiet
+/// moves which are/were in the PV (ttPv)
+/// It is cleared with each new search and filled during iterative deepening
+constexpr int MAX_LPH = 4;
+typedef Stats<int16_t, 10692, MAX_LPH, int(SQUARE_NB)* int(SQUARE_NB)> LowPlyHistory;
+
 /// CounterMoveHistory stores counter moves indexed by [piece][to] of the previous
 /// move, see www.chessprogramming.org/Countermove_Heuristic
 typedef Stats<Move, NOT_USED, PIECE_NB, SQUARE_NB> CounterMoveHistory;
@@ -98,11 +124,21 @@ typedef Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB> CapturePieceTo
 /// PieceToHistory is like ButterflyHistory but is addressed by a move's [piece][to]
 typedef Stats<int16_t, 29952, PIECE_NB, SQUARE_NB> PieceToHistory;
 
+inline Piece without_color(Piece p) {
+    return static_cast<Piece>(static_cast<int>(p) & 7);
+}
+
 /// ContinuationHistory is the combined history of a given pair of moves, usually
 /// the current one given a previous one. The nested history table is based on
 /// PieceToHistory instead of ButterflyBoards.
-typedef Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB> ContinuationHistory;
+typedef Stats<PieceToHistory, NOT_USED, PIECE_NB/2, SQUARE_NB> ContinuationHistory;
 
+// PawnHistory is addressed by the pawn structure and a move's [piece][to]
+using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
+
+// CorrectionHistory is addressed by color and pawn structure
+using CorrectionHistory =
+Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
 
 /// MovePicker class is used to pick one pseudo legal move at a time from the
 /// current position. The most important method is next_move(), which returns a
@@ -117,16 +153,20 @@ class MovePicker {
 public:
   MovePicker(const MovePicker&) = delete;
   MovePicker& operator=(const MovePicker&) = delete;
-  MovePicker(const Position&, Move, Value, const CapturePieceToHistory*);
+  MovePicker(const Position&, Move, Value, const CapturePieceToHistory*, const PawnHistory* ph);
   MovePicker(const Position&, Move, Depth, const ButterflyHistory*,
                                            const CapturePieceToHistory*,
                                            const PieceToHistory**,
+                                           const PawnHistory* ph,
                                            Square);
   MovePicker(const Position&, Move, Depth, const ButterflyHistory*,
+                                           const LowPlyHistory*,
                                            const CapturePieceToHistory*,
                                            const PieceToHistory**,
+                                           const PawnHistory* ph,
                                            Move,
-                                           Move*);
+                                           const Move*,
+                                           int);
   Move next_move(bool skipQuiets = false);
 
 private:
@@ -137,14 +177,17 @@ private:
 
   const Position& pos;
   const ButterflyHistory* mainHistory;
+  const LowPlyHistory* lowPlyHistory;
   const CapturePieceToHistory* captureHistory;
   const PieceToHistory** continuationHistory;
+  const PawnHistory* pawnHistory;
   Move ttMove;
   ExtMove refutations[3], *cur, *endMoves, *endBadCaptures;
   int stage;
   Square recaptureSquare;
   Value threshold;
   Depth depth;
+  int ply;
   ExtMove moves[MAX_MOVES];
 };
 

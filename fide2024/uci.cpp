@@ -22,6 +22,14 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <cctype>
+
+#ifndef KAGGLE
+
+#include <cmath>
+
+#endif // !KAGGLE
+
 
 #include "evaluate.h"
 #include "movegen.h"
@@ -33,6 +41,15 @@
 #include "uci.h"
 
 using namespace std;
+
+namespace UCI {
+    Move best_move = MOVE_NULL;
+    Move ponder_move = MOVE_NULL;
+    bool output_best_move = true;
+    std::vector<std::string> str;
+    std::string allocated_time = "", fen = "", last_move = "";
+    bool is_bench = false;
+}
 
 #ifndef KAGGLE
 
@@ -92,7 +109,7 @@ namespace {
         limits.startTime = now(); // As early as possible!
 
         while (is >> token)
-            if (token == "searchmoves")
+            if (token == "searchmoves") // Needs to be the last command on the line
                 while (is >> token)
                     limits.searchmoves.push_back(UCI::to_move(pos, token));
 
@@ -110,6 +127,24 @@ namespace {
             else if (token == "ponder")    ponderMode = true;
 
         Threads.start_thinking(pos, states, limits, ponderMode);
+
+#ifdef KAGGLE
+        if(!ponderMode)
+            Threads.main()->wait_for_search_finished();
+
+        if (!UCI::is_bench && !ponderMode && UCI::ponder_move != MOVE_NULL) {
+            auto states = StateListPtr(new std::deque<StateInfo>(1));
+            pos.set(UCI::fen, &states->back());
+            StateInfo si2;
+            pos.do_move(UCI::best_move, si2);
+            StateInfo si3;
+            pos.do_move(UCI::ponder_move, si3);
+
+            //sync_cout << "best_move:" << UCI::move(UCI::best_move) << " ponder_move:" << UCI::move(UCI::ponder_move) << " fen:" << pos.fen() << sync_endl;
+            UCI::str.emplace_back("position fen " + pos.fen() + "\n");
+            UCI::str.emplace_back("go ponder wtime " + UCI::allocated_time + " btime " + UCI::allocated_time + "\n");
+        }
+#endif // KAGGLE
     }
 
 
@@ -157,6 +192,29 @@ namespace {
             << "\nNodes searched  : " << nodes
             << "\nNodes/second    : " << 1000 * nodes / elapsed << endl;
     }
+
+    // The win rate model returns the probability (per mille) of winning given an eval
+    // and a game-ply. The model fits rather accurately the LTC fishtest statistics.
+    int win_rate_model(Value v, int ply) {
+
+        // The model captures only up to 240 plies, so limit input (and rescale)
+        double m = std::min(240, ply) / 64.0;
+
+        // Coefficients of a 3rd order polynomial fit based on fishtest data
+        // for two parameters needed to transform eval to the argument of a
+        // logistic function.
+        double as[] = { -8.24404295, 64.23892342, -95.73056462, 153.86478679 };
+        double bs[] = { -3.37154371, 28.44489198, -56.67657741,  72.05858751 };
+        double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
+        double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
+
+        // Transform eval to centipawns with limited range
+        double x = Utility::clamp(double(100 * v) / PawnValueEg, -1000.0, 1000.0);
+
+        // Return win rate in per mille (rounded to nearest)
+        return int(0.5 + 1000 / (1 + std::exp((a - x) / b)));
+    }
+
 #endif
 
 } // namespace
@@ -176,8 +234,10 @@ void UCI::loop(int argc, char* argv[]) {
 
     pos.set(StartFEN, &states->back());
 
-    for (int i = 1; i < argc; ++i)
-        cmd += std::string(argv[i]) + " ";
+    //for (int i = 1; i < argc; ++i)
+    //    cmd += std::string(argv[i]) + " ";
+
+    is_bench = argc > 1;
 
     do {
         if (argc == 1 && !getline(cin, cmd)) // Block here waiting for input or EOF
@@ -185,43 +245,112 @@ void UCI::loop(int argc, char* argv[]) {
 
         istringstream is(cmd);
 
-        token.clear(); // Avoid a stale if getline() returns empty or blank line
-        is >> skipws >> token;
+#ifdef KAGGLE
+        if (!is_bench) {
+            str.clear();
+            is >> skipws >> allocated_time >> fen;
+            std::string t;
+            while (t != "last_move") {
+                is >> skipws >> t;
+                if(t != "last_move")
+                    fen += " " + t;
+            }
+            is >> last_move;
 
-        if (token == "quit"
-            || token == "stop")
-            Threads.stop = true;
+            if (UCI::ponder_move == MOVE_NULL) {
+                str.emplace_back("position fen " + fen + "\n");
+                //str.emplace_back("isready\n");
+                str.emplace_back("go wtime " + allocated_time + " btime " + allocated_time + "\n");
+            }
+            else {
+                if (last_move == UCI::move(UCI::ponder_move)) {
+                    str.emplace_back("ponderhit\n");
+                }
+                else {
+                    str.emplace_back("stop\n");
+                    str.emplace_back("position fen " + fen + "\n");
+                    str.emplace_back("go wtime " + allocated_time + " btime " + allocated_time + "\n");
+                }
+            }
+        }
+        else {
+#endif // KAGGLE
+            str.clear();
+            str.emplace_back(cmd);
+#ifdef KAGGLE
+        }
+#endif // KAGGLE
 
-        // The GUI sends 'ponderhit' to tell us the user has played the expected move.
-        // So 'ponderhit' will be sent if we were told to ponder on the same move the
-        // user has played. We should continue searching but switch from pondering to
-        // normal search.
-        else if (token == "ponderhit")
-            Threads.main()->ponder = false; // Switch to normal search
+        for (size_t i = 0; i < str.size(); i++) {
+            auto& val = str[i];
+            is = istringstream(val);
 
-        else if (token == "uci")
-            sync_cout
+            token.clear(); // Avoid a stale if getline() returns empty or blank line
+            is >> skipws >> token;
+
+            if (token == "quit" || token == "stop") {
+#ifdef KAGGLE
+                if (token == "stop") {
+                    UCI::output_best_move = false;
+                }
+#endif // KAGGLE
+                    
+                Threads.stop = true;
+                Threads.main()->wait_for_search_finished();
+
+#ifdef KAGGLE
+                if (token == "stop") {
+                    UCI::output_best_move = true;
+                }
+#endif // KAGGLE
+            }
+
+            // The GUI sends 'ponderhit' to tell us the user has played the expected move.
+            // So 'ponderhit' will be sent if we were told to ponder on the same move the
+            // user has played. We should continue searching but switch from pondering to
+            // normal search.
+            else if (token == "ponderhit") {
+                Threads.main()->ponder = false; // Switch to normal search
+#ifdef KAGGLE
+                Threads.main()->wait_for_search_finished();
+
+                if (UCI::ponder_move != MOVE_NULL) {
+                    StateInfo si2;
+                    pos.do_move(UCI::best_move, si2);
+                    StateInfo si3;
+                    pos.do_move(UCI::ponder_move, si3);
+
+                    //sync_cout << "best_move:" << UCI::move(UCI::best_move) << " ponder_move:" << UCI::move(UCI::ponder_move) << " fen:" << pos.fen() << sync_endl;
+                    UCI::str.emplace_back("position fen " + pos.fen() + "\n");
+                    UCI::str.emplace_back("go ponder wtime " + UCI::allocated_time + " btime " + UCI::allocated_time + "\n");
+                }
+#endif // KAGGLE
+            }
+
+            else if (token == "uci")
+                sync_cout
 #ifndef KAGGLE
-            << "id name " << engine_info(true)
+                << "id name " << engine_info(true)
 #endif // !KAGGLE
-            << "\nuciok" << sync_endl;
+                << "\nuciok" << sync_endl;
 
-        else if (token == "go")         go(pos, is, states);
-        else if (token == "position")   position(pos, is, states);
-        else if (token == "ucinewgame") Search::clear();
-        else if (token == "isready")    sync_cout << "readyok" << sync_endl;
+            else if (token == "go")         go(pos, is, states);
+            else if (token == "position")   position(pos, is, states);
+            else if (token == "ucinewgame") Search::clear();
+            else if (token == "isready")    sync_cout << "readyok" << sync_endl;
 
-        // Additional custom non-UCI commands, mainly for debugging.
-        // Do not use these commands during a search!
+            // Additional custom non-UCI commands, mainly for debugging.
+            // Do not use these commands during a search!
 #ifndef KAGGLE
-        else if (token == "flip")     pos.flip();
-        else if (token == "bench")    bench(pos, is, states);
-        else if (token == "d")        sync_cout << pos << sync_endl;
-        else if (token == "eval")     sync_cout << Eval::trace(pos) << sync_endl;
-        else if (token == "compiler") sync_cout << compiler_info() << sync_endl;
+            else if (token == "flip")     pos.flip();
+            else if (token == "bench")    bench(pos, is, states);
+            else if (token == "d")        sync_cout << pos << sync_endl;
+            else if (token == "eval")     sync_cout << Eval::trace(pos) << sync_endl;
+            else if (token == "compiler") sync_cout << compiler_info() << sync_endl;
 #endif // !KAGGLE
-        else
-            sync_cout << "Unknown command: " << cmd << sync_endl;
+            else
+                sync_cout << "Unknown command: " << cmd << sync_endl;
+        }
 
     } while (token != "quit" && argc == 1); // Command line args are one-shot
 }
@@ -241,13 +370,29 @@ string UCI::value(Value v) {
 
     stringstream ss;
 
-    if (abs(v) < VALUE_MATE - MAX_PLY)
+    if (abs(v) < VALUE_MATE_IN_MAX_PLY)
         ss << "cp " << v * 100 / PawnValueEg;
     else
         ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;
 
     return ss.str();
 }
+
+/// UCI::wdl() report WDL statistics given an evaluation and a game ply, based on
+/// data gathered for fishtest LTC games.
+
+string UCI::wdl(Value v, int ply) {
+
+    stringstream ss;
+
+    int wdl_w = win_rate_model(v, ply);
+    int wdl_l = win_rate_model(-v, ply);
+    int wdl_d = 1000 - wdl_w - wdl_l;
+    ss << " wdl " << wdl_w << " " << wdl_d << " " << wdl_l;
+
+    return ss.str();
+}
+
 #endif // !KAGGLE
 
 

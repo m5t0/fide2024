@@ -19,6 +19,7 @@
 */
 
 #include <cassert>
+#include <iostream>
 
 #include "movepick.h"
 
@@ -56,45 +57,39 @@ namespace {
 /// ordering is at the current node.
 
 /// MovePicker constructor for the main search
-MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh,
-                       const CapturePieceToHistory* cph, const PieceToHistory** ch, Move cm, Move* killers)
-           : pos(p), mainHistory(mh), captureHistory(cph), continuationHistory(ch),
-             refutations{{killers[0], 0}, {killers[1], 0}, {cm, 0}}, depth(d) {
+MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh, const LowPlyHistory* lp,
+    const CapturePieceToHistory* cph, const PieceToHistory** ch, const PawnHistory* ph, Move cm, const Move* killers, int pl)
+    : pos(p), mainHistory(mh), lowPlyHistory(lp), captureHistory(cph), continuationHistory(ch), pawnHistory(ph),
+    ttMove(ttm), refutations{ {killers[0], 0}, {killers[1], 0}, {cm, 0} }, depth(d), ply(pl) {
 
   assert(d > 0);
 
-  stage = pos.checkers() ? EVASION_TT : MAIN_TT;
-  ttMove = ttm && pos.pseudo_legal(ttm) ? ttm : MOVE_NONE;
-  stage += (ttMove == MOVE_NONE);
+  stage = (pos.checkers() ? EVASION_TT : MAIN_TT) +
+      !(ttm && pos.pseudo_legal(ttm));
 }
 
 /// MovePicker constructor for quiescence search
 MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh,
-                       const CapturePieceToHistory* cph, const PieceToHistory** ch, Square rs)
-           : pos(p), mainHistory(mh), captureHistory(cph), continuationHistory(ch), recaptureSquare(rs), depth(d) {
+    const CapturePieceToHistory* cph, const PieceToHistory** ch, const PawnHistory* ph, Square rs)
+           : pos(p), mainHistory(mh), captureHistory(cph), continuationHistory(ch), pawnHistory(ph), ttMove(ttm), recaptureSquare(rs), depth(d) {
 
   assert(d <= 0);
 
-  stage = pos.checkers() ? EVASION_TT : QSEARCH_TT;
-  ttMove =   ttm
-          && (depth > DEPTH_QS_RECAPTURES || to_sq(ttm) == recaptureSquare)
-          && pos.pseudo_legal(ttm) ? ttm : MOVE_NONE;
-  stage += (ttMove == MOVE_NONE);
+  stage = (pos.checkers() ? EVASION_TT : QSEARCH_TT) +
+           !(ttm && (depth > DEPTH_QS_RECAPTURES || to_sq(ttm) == recaptureSquare)
+                 && pos.pseudo_legal(ttm));
 }
 
 /// MovePicker constructor for ProbCut: we generate captures with SEE greater
 /// than or equal to the given threshold.
-MovePicker::MovePicker(const Position& p, Move ttm, Value th, const CapturePieceToHistory* cph)
-           : pos(p), captureHistory(cph), threshold(th) {
+MovePicker::MovePicker(const Position& p, Move ttm, Value th, const CapturePieceToHistory* cph, const PawnHistory* ph)
+           : pos(p), captureHistory(cph), pawnHistory(ph), ttMove(ttm), threshold(th) {
 
   assert(!pos.checkers());
 
-  stage = PROBCUT_TT;
-  ttMove =   ttm
-          && pos.capture(ttm)
-          && pos.pseudo_legal(ttm)
-          && pos.see_ge(ttm, threshold) ? ttm : MOVE_NONE;
-  stage += (ttMove == MOVE_NONE);
+  stage = PROBCUT_TT + !(ttm && pos.capture(ttm)
+                             && pos.pseudo_legal(ttm)
+                             && pos.see_ge(ttm, threshold));
 }
 
 /// MovePicker::score() assigns a numerical value to each move in a list, used
@@ -111,21 +106,35 @@ void MovePicker::score() {
                    + (*captureHistory)[pos.moved_piece(m)][to_sq(m)][type_of(pos.piece_on(to_sq(m)))];
 
       else if (Type == QUIETS)
-          m.value =      (*mainHistory)[pos.side_to_move()][from_to(m)]
-                   + 2 * (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)]
-                   + 2 * (*continuationHistory[1])[pos.moved_piece(m)][to_sq(m)]
-                   + 2 * (*continuationHistory[3])[pos.moved_piece(m)][to_sq(m)]
-                   +     (*continuationHistory[5])[pos.moved_piece(m)][to_sq(m)];
+      {
+          Color us = pos.side_to_move();
+          Piece     pc = pos.moved_piece(m);
+          PieceType pt = type_of(pc);
+          Square    from = from_sq(m);
+          Square    to = to_sq(m);
+
+          m.value =      (*mainHistory)[us][from_to(m)]
+                   + 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to]
+                   + 2 * (*continuationHistory[0])[pc][to]
+                   + 2 * (*continuationHistory[1])[pc][to]
+                   + 2 * (*continuationHistory[3])[pc][to]
+                   +     (*continuationHistory[5])[pc][to]
+                   + (ply < MAX_LPH ? 6 * (*lowPlyHistory)[ply][from_to(m)] : 0);
+      }
 
       else // Type == EVASIONS
       {
           if (pos.capture(m))
               m.value =  PieceValue[MG][pos.piece_on(to_sq(m))]
                        - Value(type_of(pos.moved_piece(m)));
-          else
-              m.value =  (*mainHistory)[pos.side_to_move()][from_to(m)]
+          else {
+              Color us = pos.side_to_move();
+
+              m.value =  (*mainHistory)[us][from_to(m)]
                        + (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)]
+                       + (*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][to_sq(m)]
                        - (1 << 28);
+          }
       }
 }
 
@@ -174,7 +183,7 @@ top:
 
   case GOOD_CAPTURE:
       if (select<Best>([&](){
-                       return pos.see_ge(*cur, Value(-55 * cur->value / 1024)) ?
+                       return pos.see_ge(*cur, Value(-69 * cur->value / 1024)) ?
                               // Move losing capture to endBadCaptures to be tried later
                               true : (*endBadCaptures++ = *cur, false); }))
           return *(cur - 1);
