@@ -531,37 +531,3 @@ void bindThisThread(size_t idx) {
 #endif
 
 } // namespace WinProcGroup
-
-// Wrappers for systems where the c++17 implementation does not guarantee the
-// availability of aligned_alloc(). Memory allocated with std_aligned_alloc()
-// must be freed with std_aligned_free().
-
-void* std_aligned_alloc(size_t alignment, size_t size) {
-#if defined(_ISOC11_SOURCE)
-    return aligned_alloc(alignment, size);
-#elif defined(POSIXALIGNEDALLOC)
-    void* mem = nullptr;
-    posix_memalign(&mem, alignment, size);
-    return mem;
-#elif defined(_WIN32) && !defined(_M_ARM) && !defined(_M_ARM64)
-    return _mm_malloc(size, alignment);
-#elif defined(_WIN32)
-    return _aligned_malloc(size, alignment);
-#else
-    return std::aligned_alloc(alignment, size);
-#endif
-}
-
-
-void std_aligned_free(void* ptr) {
-
-#if defined(POSIXALIGNEDALLOC)
-    free(ptr);
-#elif defined(_WIN32) && !defined(_M_ARM) && !defined(_M_ARM64)
-    _mm_free(ptr);
-#elif defined(_WIN32)
-    _aligned_free(ptr);
-#else
-    free(ptr);
-#endif
-}

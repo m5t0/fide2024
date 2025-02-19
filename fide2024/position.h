@@ -28,7 +28,6 @@
 
 #include "bitboard.h"
 #include "types.h"
-#include "nnue/nnue_accumulator.h"
 
 
 /// StateInfo struct stores information needed to restore a Position object to
@@ -55,10 +54,6 @@ struct StateInfo {
   Bitboard   pinners[COLOR_NB];
   Bitboard   checkSquares[PIECE_TYPE_NB];
   int        repetition;
-
-  // Used by NNUE
-  Eval::NNUE::Accumulator accumulator;
-  DirtyPiece dirtyPiece;
 };
 
 /// A list to keep track of the position states along the setup moves (from the
@@ -166,9 +161,6 @@ public:
   bool pos_is_ok() const;
   void flip();
 #endif // !KAGGLE
-
-  // Used by NNUE
-  StateInfo* state() const;
 
 private:
   // Initialization helpers (used while setting up a position)
@@ -423,10 +415,6 @@ inline void Position::move_piece(Square from, Square to) {
 
 inline void Position::do_move(Move m, StateInfo& newSt) {
   do_move(m, newSt, gives_check(m));
-}
-
-inline StateInfo* Position::state() const {
-    return st;
 }
 
 #endif // #ifndef POSITION_H_INCLUDED

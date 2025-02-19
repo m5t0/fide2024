@@ -137,8 +137,4 @@ namespace WinProcGroup {
   void bindThisThread(size_t idx);
 }
 
-void* std_aligned_alloc(size_t alignment, size_t size);
-
-void std_aligned_free(void* ptr);
-
 #endif // #ifndef MISC_H_INCLUDED

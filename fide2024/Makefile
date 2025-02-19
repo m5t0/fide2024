@@ -38,7 +38,7 @@ PGOBENCH = ./$(EXE) bench
 ### Object files
 OBJS = bitbase.o bitboard.o endgame.o evaluate.o main.o \
 	material.o misc.o movegen.o movepick.o pawns.o position.o psqt.o \
-	search.o thread.o timeman.o tt.o uci.o benchmark.o ./nnue/evaluate_nnue.o ./nnue/features/a.o
+	search.o thread.o timeman.o tt.o uci.o benchmark.o
 
 ### Establish the operating system name
 KERNEL = $(shell uname -s)
@@ -445,7 +445,7 @@ clean: objclean profileclean
 
 # clean binaries and objects
 objclean:
-	@rm -f $(EXE) *.o ./nnue/*.o ./nnue/features/*.o
+	@rm -f $(EXE) *.o
 
 # clean auxiliary profiling files
 profileclean:

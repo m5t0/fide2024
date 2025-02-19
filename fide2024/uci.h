@@ -23,7 +23,6 @@
 
 #include <map>
 #include <string>
-#include <vector>
 
 #include "types.h"
 
@@ -44,8 +43,6 @@ namespace OptionValue {
     constexpr int MinimumThinkingTime = 5;
     // min: 10, max: 1000
     constexpr int SlowMover = 84;
-    const std::string EvalFile = "./ver50_epoch23.nnue";
-    constexpr bool useNNUE = true;
 }
 
 namespace UCI {

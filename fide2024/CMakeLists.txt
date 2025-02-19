@@ -4,19 +4,17 @@
 
 # ソースをこのプロジェクトの実行可能ファイルに追加します。
 file(GLOB CPP_SOURCES "${PROJECT_SOURCE_DIR}/fide2024/*.cpp")
-file(GLOB CPP_NNUE_SOURCES "${PROJECT_SOURCE_DIR}/fide2024/nnue/*.cpp" "${PROJECT_SOURCE_DIR}/fide2024/nnue/architectures/*.cpp" "${PROJECT_SOURCE_DIR}/fide2024/nnue/features/*.cpp" "${PROJECT_SOURCE_DIR}/fide2024/nnue/layers/*.cpp")
 file(GLOB H_SOURCES "${PROJECT_SOURCE_DIR}/fide2024/*.h")
-file(GLOB H_NNUE_SOURCES "${PROJECT_SOURCE_DIR}/fide2024/*.h" "${PROJECT_SOURCE_DIR}/fide2024/nnue/architectures/*.h" "${PROJECT_SOURCE_DIR}/fide2024/nnue/features/*.h" "${PROJECT_SOURCE_DIR}/fide2024/nnue/layers/*.h")
 # file(GLOB CPP_SOURCES_SYZYGY "${PROJECT_SOURCE_DIR}/fide2024/syzygy/*.cpp")
 # file(GLOB H_SOURCES_SYZYGY "${PROJECT_SOURCE_DIR}/fide2024/syzygy/*.h")
 
-add_library(fide2024_lib ${H_SOURCES} ${CPP_SOURCES} ${H_NNUE_SOURCES} ${CPP_NNUE_SOURCES})
-add_executable(fide2024 ${H_SOURCES} ${CPP_SOURCES} ${H_SOURCES} ${CPP_NNUE_SOURCES})
+add_library(fide2024_lib ${H_SOURCES} ${CPP_SOURCES} ${H_SOURCES_SYZYGY} ${CPP_SOURCES_SYZYGY})
+add_executable(fide2024 ${H_SOURCES} ${CPP_SOURCES} ${H_SOURCES_SYZYGY} ${CPP_SOURCES_SYZYGY})
 # target_link_libraries(fide2024 pthread)
 # target_link_libraries(fide2024_lib pthread)
 
-target_compile_definitions(fide2024 PRIVATE USE_POPCNT=1 USE_SSE2=1)
-target_compile_definitions(fide2024_lib PRIVATE USE_POPCNT=1 USE_SSE2=1)
+target_compile_definitions(fide2024 PRIVATE USE_POPCNT=1)
+target_compile_definitions(fide2024_lib PRIVATE USE_POPCNT=1)
 
 if(IS_KAGGLE_ENV)
   target_compile_definitions(fide2024 PRIVATE KAGGLE=1)

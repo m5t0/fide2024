@@ -690,11 +690,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   ++st->rule50;
   ++st->pliesFromNull;
 
-  st->accumulator.computed_accumulation = false;
-  st->accumulator.computed_score = false;
-  auto& dp = st->dirtyPiece;
-  dp.dirty_num = 1;
-
   Color us = sideToMove;
   Color them = ~us;
   Square from = from_sq(m);
@@ -742,14 +737,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       else
           st->nonPawnMaterial[them] -= PieceValue[MG][captured];
 
-      if (OptionValue::useNNUE)
-      {
-          dp.dirty_num = 2;  // 1 piece moved, 1 piece captured
-          dp.piece[1] = captured;
-          dp.from[1] = capsq;
-          dp.to[1] = SQ_NONE;
-      }
-
       // Update board and piece lists
       remove_piece(capsq);
 
@@ -784,16 +771,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   }
 
   // Move the piece. The tricky Chess960 castling is handled earlier
-  if (type_of(m) != CASTLING) {
-        if (OptionValue::useNNUE)
-        {
-            dp.piece[0] = pc;
-            dp.from[0] = from;
-            dp.to[0] = to;
-        }
-
+  if (type_of(m) != CASTLING)
       move_piece(from, to);
-  }
 
   // If the moving piece is a pawn do some special extra work
   if (type_of(pc) == PAWN)
@@ -815,16 +794,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
           remove_piece(to);
           put_piece(promotion, to);
-
-          if (OptionValue::useNNUE)
-          {
-              // Promoting pawn to SQ_NONE, promoted piece from SQ_NONE
-              dp.to[0] = SQ_NONE;
-              dp.piece[dp.dirty_num] = promotion;
-              dp.from[dp.dirty_num] = SQ_NONE;
-              dp.to[dp.dirty_num] = to;
-              dp.dirty_num++;
-          }
 
           // Update hash keys
           k ^= Zobrist::psq[pc][to] ^ Zobrist::psq[promotion][to];
@@ -958,18 +927,6 @@ void Position::do_castling(Color us, Square from, Square& to, Square& rfrom, Squ
   rto = relative_square(us, kingSide ? SQ_F1 : SQ_D1);
   to = relative_square(us, kingSide ? SQ_G1 : SQ_C1);
 
-  if (Do && OptionValue::useNNUE)
-  {
-      auto& dp = st->dirtyPiece;
-      dp.piece[0] = make_piece(us, KING);
-      dp.from[0] = from;
-      dp.to[0] = to;
-      dp.piece[1] = make_piece(us, ROOK);
-      dp.from[1] = rfrom;
-      dp.to[1] = rto;
-      dp.dirty_num = 2;
-  }
-
   // Remove both pieces first since squares could overlap in Chess960
   remove_piece(Do ? from : to);
   remove_piece(Do ? rfrom : rto);
@@ -986,15 +943,6 @@ void Position::do_null_move(StateInfo& newSt) {
 
   assert(!checkers());
   assert(&newSt != st);
-
-  if (OptionValue::useNNUE)
-  {
-      std::memcpy(&newSt, st, sizeof(StateInfo));
-      st->accumulator.computed_score = false;
-  }
-  else
-      std::memcpy(&newSt, st, offsetof(StateInfo, accumulator));
-
 
   std::memcpy(&newSt, st, sizeof(StateInfo));
   newSt.previous = st;

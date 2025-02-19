@@ -464,21 +464,4 @@ constexpr Key make_key(uint64_t seed) {
     return seed * 6364136223846793005ULL + 1442695040888963407ULL;
 }
 
-
-// Keep track of what a move changes on the board (used by NNUE)
-struct DirtyPiece {
-
-    // Number of changed pieces
-    int dirty_num;
-
-    // Max 3 pieces can change in one move. A promotion with capture moves
-    // both the pawn and the captured piece to SQ_NONE and the piece promoted
-    // to from SQ_NONE to the capture square.
-    Piece piece[3];
-
-    // From and to squares, which may be SQ_NONE
-    Square from[3];
-    Square to[3];
-};
-
 #endif // #ifndef TYPES_H_INCLUDED

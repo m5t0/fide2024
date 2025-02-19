@@ -25,27 +25,15 @@
 
 #include "types.h"
 
-#define EvalFileDefaultName   "a_64_12.nnue"
-
 class Position;
 
 namespace Eval {
 
 #ifndef KAGGLE
-    std::string trace(const Position& pos);
+std::string trace(const Position& pos);
 #endif // !KAGGLE
 
-    void init_NNUE();
-    void verify_NNUE();
-    Value evaluate(const Position& pos);
-
-    namespace NNUE {
-        Value evaluate(const Position& pos);
-        Value compute_eval(const Position& pos);
-        void  update_eval(const Position& pos);
-        bool  load_eval(std::string streamName, std::istream& stream);
-    }
-
+Value evaluate(const Position& pos);
 }
 
 #endif // #ifndef EVALUATE_H_INCLUDED
